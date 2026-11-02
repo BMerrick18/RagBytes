@@ -1,0 +1,32 @@
+(site) {
+	# Cloudflare Origin Certificate; Cloudflare serves the public certificate to visitors.
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+
+	request_body {
+		max_size 50MB
+	}
+
+	encode zstd gzip
+}
+
+{$PROD_DOMAINS} {
+	import site
+	reverse_proxy prod-web:3000
+}
+
+{$DEV_DOMAIN} {
+	import site
+	header X-Robots-Tag "noindex, nofollow"
+	reverse_proxy dev-web:3000
+}
+
+{$PROD_API_DOMAIN} {
+	import site
+	reverse_proxy prod-api:8000
+}
+
+{$DEV_API_DOMAIN} {
+	import site
+	header X-Robots-Tag "noindex, nofollow"
+	reverse_proxy dev-api:8000
+}

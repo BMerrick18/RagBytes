@@ -1,0 +1,53 @@
+# One RagBytes environment (API + web). Each stack (prod, dev) runs a copy of this behind the shared
+# Caddy proxy in deploy/edge, which reaches it by the aliases <STACK>-web and <STACK>-api on the
+# ragbyte-edge network.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  api:
+    image: ghcr.io/bmerrick18/shark-byte-api:${IMAGE_TAG:-latest}
+    build: .
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      WEB_CONCURRENCY: ${API_WORKERS:-2}
+    volumes:
+      # Running totals of documents and chunks for GET /v1/stats; no document content.
+      - stats:/app/data
+    expose:
+      - "8000"
+    networks:
+      default: {}
+      edge:
+        aliases:
+          - ${STACK:?Set STACK in .env to prod or dev}-api
+
+  web:
+    image: ghcr.io/bmerrick18/shark-byte-web:${IMAGE_TAG:-latest}
+    build: ./web
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      RAGBYTE_API_URL: http://api:8000
+      RAGBYTE_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
+    expose:
+      - "3000"
+    depends_on:
+      - api
+    networks:
+      default: {}
+      edge:
+        aliases:
+          - ${STACK:?Set STACK in .env to prod or dev}-web
+
+volumes:
+  stats:
+
+networks:
+  edge:
+    name: ragbyte-edge
+    external: true

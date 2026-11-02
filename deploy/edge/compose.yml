@@ -1,0 +1,36 @@
+# Shared HTTPS proxy for every RagByte stack on the server. Start this before any app stack:
+# it creates the ragbyte-edge network they join.
+name: ragbyte-edge
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PROD_DOMAINS: ${PROD_DOMAINS:?Set PROD_DOMAINS in .env, for example "example.com, www.example.com"}
+      DEV_DOMAIN: ${DEV_DOMAIN:?Set DEV_DOMAIN in .env, for example dev.example.com}
+      PROD_API_DOMAIN: ${PROD_API_DOMAIN:?Set PROD_API_DOMAIN in .env, for example api.example.com}
+      DEV_API_DOMAIN: ${DEV_API_DOMAIN:?Set DEV_API_DOMAIN in .env, for example api-dev.example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${CERTS_DIR:?Set CERTS_DIR in .env to the folder holding origin.pem and origin.key}:/etc/caddy/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - edge
+
+networks:
+  edge:
+    name: ragbyte-edge
+
+volumes:
+  caddy_data:
+  caddy_config:

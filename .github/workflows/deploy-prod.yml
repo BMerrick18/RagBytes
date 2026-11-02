@@ -1,0 +1,34 @@
+name: Deploy to production
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Full commit SHA of a main build to deploy. Leave empty for the latest commit on main.
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  check-branch:
+    name: Check branch
+    runs-on: ubuntu-latest
+    steps:
+      - run: '[ "$GITHUB_REF" = refs/heads/main ] || { echo "::error::Run this workflow from main."; exit 1; }'
+
+  deploy:
+    name: Deploy to prod
+    needs: [check-branch]
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: production
+      stack: prod
+      url: https://ragbytes.com
+      api_url: https://api.ragbytes.com
+      image_tag: ${{ inputs.image_tag || github.sha }}
+    secrets: inherit

@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars (git-ignored) and fill in.
+admin_cidrs  = ["203.0.113.7/32"]
+alert_emails = ["you@example.com"]
+
+# Optional overrides:
+# domain        = "ragbytes.com"
+# dev_subdomain = "dev"
+# region        = "lon1"
+# droplet_size  = "s-1vcpu-2gb"

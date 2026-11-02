@@ -1,0 +1,436 @@
+{
+  "title": "Harbour lighting trial",
+  "limits": {
+    "chunk_size": 500,
+    "structured_chunk_size": 2000
+  },
+  "sections": [
+    {
+      "heading": "Harbour lighting trial",
+      "kind": "text",
+      "chars": 79,
+      "preview": "Field notes for the March trial at North Pier. Prepared for the harbour…",
+      "text": "Field notes for the March trial at North Pier. Prepared for the harbour office."
+    },
+    {
+      "heading": "Overview",
+      "kind": "text",
+      "chars": 306,
+      "preview": "This note records a one-week trial of warmer quay lighting along North…",
+      "text": "This note records a one-week trial of warmer quay lighting along North Pier. The aim was to see whether crews could read mooring marks after dusk without extra hand lamps. Readings were taken at the same six bollards each night, in clear weather and in drizzle, and compared with the existing sodium lamps."
+    },
+    {
+      "heading": "Kit",
+      "kind": "list",
+      "chars": 246,
+      "preview": "Lamps: six warm-white LED heads on the existing poles, aimed at the…",
+      "text": "- Lamps: six warm-white LED heads on the existing poles, aimed at the bollard line.\n- Meters: a handheld lux meter and a phone camera fixed at bollard height.\n- Marks: high-visibility paint on bollards 2, 4 and 6, left unchanged from last season."
+    },
+    {
+      "heading": "North Pier",
+      "kind": "text",
+      "chars": 77,
+      "preview": "North Pier: the first stretch of the trial, from the steps to the fuel…",
+      "text": "North Pier: the first stretch of the trial, from the steps to the fuel berth."
+    },
+    {
+      "heading": "North Pier",
+      "kind": "list",
+      "chars": 567,
+      "preview": "Bollard line: crews could read the numbers at 15 metres under the new…",
+      "text": "- Bollard line: crews could read the numbers at 15 metres under the new lamps, against 8 metres under the sodium lamps.\n- Glare: the warm heads threw less glare onto the water, so the opposite quay stayed readable from the helm.\n- Drizzle: on the wet night the painted marks held their contrast, while the unpainted bollards faded into the deck.\n- Power: the six heads drew less than the sodium pair they replaced, measured at the pier distribution board.\n- Shadows: the poles still leave a dark wedge behind each bollard, which the crew noticed when stepping ashore."
+    },
+    {
+      "heading": "Readings",
+      "kind": "text",
+      "chars": 18,
+      "preview": "Night of 12 March.",
+      "text": "Night of 12 March."
+    },
+    {
+      "heading": "Readings",
+      "kind": "text",
+      "chars": 59,
+      "preview": "Clear sky, light wind, no deck traffic during the readings.",
+      "text": "Clear sky, light wind, no deck traffic during the readings."
+    },
+    {
+      "heading": "Readings",
+      "kind": "list",
+      "chars": 490,
+      "preview": "Lux at the bollards: the warm lamps held a steady band, with no dark…",
+      "text": "- Lux at the bollards: the warm lamps held a steady band, with no dark gap between poles.\n- Camera check: numbers stayed legible in the fixed-phone frames without raising the exposure.\n- Crew notes: two night hands said they no longer needed a torch to find the stern line.\n- Repeat pass: a second walk an hour later matched the first, so the lamps were not warming into a brighter state.\n- Edge of the berth: the fuel pontoon, just past the last pole, dropped back to the old sodium level."
+    },
+    {
+      "heading": "Method",
+      "kind": "text",
+      "chars": 112,
+      "preview": "Each night used the same walk: steps, bollards 1 to 6, then the fuel…",
+      "text": "Each night used the same walk: steps, bollards 1 to 6, then the fuel berth, with the meter held at waist height."
+    },
+    {
+      "heading": "Method",
+      "kind": "text",
+      "chars": 98,
+      "preview": "The sodium lamps were the baseline on night one. The warm heads ran on…",
+      "text": "The sodium lamps were the baseline on night one. The warm heads ran on the five nights after that."
+    },
+    {
+      "heading": "Follow-up",
+      "kind": "list",
+      "chars": 262,
+      "preview": "Fit the same heads on South Pier before the April tides, and repeat the…",
+      "text": "- Fit the same heads on South Pier before the April tides, and repeat the six-bollard walk.\n- Ask the night crew to log any lamp that flickers, with the pole number and the time.\n- Keep the painted marks as they are, so the next trial can compare like with like."
+    },
+    {
+      "heading": "Contacts",
+      "kind": "text",
+      "chars": 91,
+      "preview": "Harbour office, North Pier · lighting-trial@example.test · ask for the…",
+      "text": "Harbour office, North Pier · lighting-trial@example.test · ask for the duty harbour master."
+    },
+    {
+      "heading": "Contacts",
+      "kind": "text",
+      "chars": 64,
+      "preview": "Lumen Works, trial desk · notes@example.test · weekday mornings.",
+      "text": "Lumen Works, trial desk · notes@example.test · weekday mornings."
+    }
+  ],
+  "tiers": {
+    "basic": [
+      {
+        "sections": [
+          0,
+          1
+        ],
+        "chars": 423,
+        "headings": [
+          "Harbour lighting trial"
+        ],
+        "text": "Harbour lighting trial\n\nField notes for the March trial at North Pier. Prepared for the harbour office.\n\nOverview\n\nThis note records a one-week trial of warmer quay lighting along North Pier. The aim was to see whether crews could read mooring marks after dusk without extra hand lamps. Readings were taken at the same six bollards each night, in clear weather and in drizzle, and compared with the existing sodium lamps.\n\n",
+        "steps": [
+          {
+            "sections": [
+              0,
+              1
+            ],
+            "chars": 423,
+            "reason": "first"
+          }
+        ]
+      },
+      {
+        "sections": [
+          2,
+          3,
+          4
+        ],
+        "chars": 464,
+        "headings": [
+          "Harbour lighting trial",
+          "Kit"
+        ],
+        "text": "Kit\n\n- Lamps: six warm-white LED heads on the existing poles, aimed at the bollard line.\n- Meters: a handheld lux meter and a phone camera fixed at bollard height.\n- Marks: high-visibility paint on bollards 2, 4 and 6, left unchanged from last season.\n\nNorth Pier\n\nNorth Pier: the first stretch of the trial, from the steps to the fuel berth.\n\n- Bollard line: crews could read the numbers at 15 metres under the new lamps, against 8 metres under the sodium lamps.\n",
+        "steps": [
+          {
+            "sections": [
+              2,
+              3,
+              4
+            ],
+            "chars": 464,
+            "reason": "full"
+          }
+        ]
+      },
+      {
+        "sections": [
+          4,
+          5
+        ],
+        "chars": 479,
+        "headings": [
+          "Harbour lighting trial",
+          "North Pier"
+        ],
+        "text": "- Glare: the warm heads threw less glare onto the water, so the opposite quay stayed readable from the helm.\n- Drizzle: on the wet night the painted marks held their contrast, while the unpainted bollards faded into the deck.\n- Power: the six heads drew less than the sodium pair they replaced, measured at the pier distribution board.\n- Shadows: the poles still leave a dark wedge behind each bollard, which the crew noticed when stepping ashore.\n\nReadings\n\nNight of 12 March.\n\n",
+        "steps": [
+          {
+            "sections": [
+              4,
+              5
+            ],
+            "chars": 479,
+            "reason": "full"
+          }
+        ]
+      },
+      {
+        "sections": [
+          6,
+          7
+        ],
+        "chars": 450,
+        "headings": [
+          "Harbour lighting trial",
+          "Readings"
+        ],
+        "text": "Clear sky, light wind, no deck traffic during the readings.\n\n- Lux at the bollards: the warm lamps held a steady band, with no dark gap between poles.\n- Camera check: numbers stayed legible in the fixed-phone frames without raising the exposure.\n- Crew notes: two night hands said they no longer needed a torch to find the stern line.\n- Repeat pass: a second walk an hour later matched the first, so the lamps were not warming into a brighter state.\n",
+        "steps": [
+          {
+            "sections": [
+              6,
+              7
+            ],
+            "chars": 450,
+            "reason": "full"
+          }
+        ]
+      },
+      {
+        "sections": [
+          7,
+          8,
+          9,
+          10
+        ],
+        "chars": 428,
+        "headings": [
+          "Harbour lighting trial",
+          "Readings"
+        ],
+        "text": "- Edge of the berth: the fuel pontoon, just past the last pole, dropped back to the old sodium level.\n\nMethod\n\nEach night used the same walk: steps, bollards 1 to 6, then the fuel berth, with the meter held at waist height.\n\nThe sodium lamps were the baseline on night one. The warm heads ran on the five nights after that.\n\nFollow-up\n\n- Fit the same heads on South Pier before the April tides, and repeat the six-bollard walk.\n",
+        "steps": [
+          {
+            "sections": [
+              7,
+              8,
+              9,
+              10
+            ],
+            "chars": 428,
+            "reason": "full"
+          }
+        ]
+      },
+      {
+        "sections": [
+          10,
+          11,
+          12
+        ],
+        "chars": 339,
+        "headings": [
+          "Harbour lighting trial",
+          "Follow-up"
+        ],
+        "text": "- Ask the night crew to log any lamp that flickers, with the pole number and the time.\n- Keep the painted marks as they are, so the next trial can compare like with like.\n\nContacts\n\nHarbour office, North Pier · lighting-trial@example.test · ask for the duty harbour master.\n\nLumen Works, trial desk · notes@example.test · weekday mornings.",
+        "steps": [
+          {
+            "sections": [
+              10,
+              11,
+              12
+            ],
+            "chars": 339,
+            "reason": "full"
+          }
+        ]
+      }
+    ],
+    "structured": [
+      {
+        "sections": [
+          0
+        ],
+        "chars": 103,
+        "headings": [
+          "Harbour lighting trial"
+        ],
+        "steps": [
+          {
+            "sections": [
+              0
+            ],
+            "chars": 79,
+            "reason": "first"
+          }
+        ]
+      },
+      {
+        "sections": [
+          1
+        ],
+        "chars": 341,
+        "headings": [
+          "Harbour lighting trial",
+          "Overview"
+        ],
+        "steps": [
+          {
+            "sections": [
+              1
+            ],
+            "chars": 306,
+            "reason": "new_heading"
+          }
+        ]
+      },
+      {
+        "sections": [
+          2
+        ],
+        "chars": 276,
+        "headings": [
+          "Harbour lighting trial",
+          "Kit"
+        ],
+        "steps": [
+          {
+            "sections": [
+              2
+            ],
+            "chars": 246,
+            "reason": "new_heading"
+          }
+        ]
+      },
+      {
+        "sections": [
+          3,
+          4
+        ],
+        "chars": 683,
+        "headings": [
+          "Harbour lighting trial",
+          "North Pier"
+        ],
+        "steps": [
+          {
+            "sections": [
+              3
+            ],
+            "chars": 77,
+            "reason": "new_heading"
+          },
+          {
+            "sections": [
+              4
+            ],
+            "chars": 567,
+            "reason": "same_heading"
+          }
+        ]
+      },
+      {
+        "sections": [
+          5,
+          6,
+          7
+        ],
+        "chars": 606,
+        "headings": [
+          "Harbour lighting trial",
+          "Readings"
+        ],
+        "steps": [
+          {
+            "sections": [
+              5
+            ],
+            "chars": 18,
+            "reason": "new_heading"
+          },
+          {
+            "sections": [
+              6
+            ],
+            "chars": 59,
+            "reason": "same_heading"
+          },
+          {
+            "sections": [
+              7
+            ],
+            "chars": 490,
+            "reason": "same_heading"
+          }
+        ]
+      },
+      {
+        "sections": [
+          8,
+          9
+        ],
+        "chars": 245,
+        "headings": [
+          "Harbour lighting trial",
+          "Method"
+        ],
+        "steps": [
+          {
+            "sections": [
+              8
+            ],
+            "chars": 112,
+            "reason": "new_heading"
+          },
+          {
+            "sections": [
+              9
+            ],
+            "chars": 98,
+            "reason": "same_heading"
+          }
+        ]
+      },
+      {
+        "sections": [
+          10
+        ],
+        "chars": 298,
+        "headings": [
+          "Harbour lighting trial",
+          "Follow-up"
+        ],
+        "steps": [
+          {
+            "sections": [
+              10
+            ],
+            "chars": 262,
+            "reason": "new_heading"
+          }
+        ]
+      },
+      {
+        "sections": [
+          11,
+          12
+        ],
+        "chars": 192,
+        "headings": [
+          "Harbour lighting trial",
+          "Contacts"
+        ],
+        "steps": [
+          {
+            "sections": [
+              11
+            ],
+            "chars": 91,
+            "reason": "new_heading"
+          },
+          {
+            "sections": [
+              12
+            ],
+            "chars": 64,
+            "reason": "same_heading"
+          }
+        ]
+      }
+    ]
+  }
+}
