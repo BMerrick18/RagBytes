@@ -6,9 +6,9 @@ from collections import Counter
 
 from bs4 import BeautifulSoup, Comment, Tag
 
-from shark_byte.extract.html import inline_text
-from shark_byte.extract.render import render_complex, render_image, render_paragraph, render_table
-from shark_byte.extract.sections import (
+from ragbytes.extract.html import inline_text
+from ragbytes.extract.render import render_complex, render_image, render_paragraph, render_table
+from ragbytes.extract.sections import (
     HeadingState,
     add_section,
     assign_indexes,
@@ -16,7 +16,7 @@ from shark_byte.extract.sections import (
     image_from_data_uri,
     looks_like_heading,
 )
-from shark_byte.schemas import Section
+from ragbytes.schemas import Section
 
 _ATX = re.compile(r"^(#{1,6})[ \t]+(.+?)\s*#*\s*$")
 _OUTLINE = re.compile(r"^(\d+(?:\.\d+)+)\.?\s+(\S.*?)\s*$")

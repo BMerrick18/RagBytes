@@ -31,7 +31,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from shark_byte.extract.extractors import (
+from ragbytes.extract.extractors import (
     extract_docx,
     extract_html,
     extract_markdown,
@@ -965,7 +965,7 @@ def test_pdf_plain_numbered_lines_stay_list_items():
 
 
 def test_heading_state_drops_a_leading_marker_glyph():
-    from shark_byte.extract.sections import HeadingState
+    from ragbytes.extract.sections import HeadingState
 
     state = HeadingState()
     state.apply(1, "■ Scope")
@@ -976,7 +976,7 @@ def test_heading_state_drops_a_leading_marker_glyph():
 
 
 def test_normalize_inline_folds_width_and_keeps_superscripts():
-    from shark_byte.extract.render import normalize_inline
+    from ragbytes.extract.render import normalize_inline
 
     assert normalize_inline("Package（Tape）：\u3000150℃ ・ Test") == "Package(Tape): 150°C ・ Test"
     assert normalize_inline("Area 10 mm² ( in mm )") == "Area 10 mm² (in mm)"

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from shark_byte.extract.registry import get_extractor
+from ragbytes.extract.registry import get_extractor
 
 DOCUMENTS = Path(__file__).resolve().parent.parent / "test_documents"
 CORPUS = DOCUMENTS / "corpus"

@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from shark_byte.main import app
+from ragbytes.main import app
 
 
 def test_health_reports_version():

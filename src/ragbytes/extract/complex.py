@@ -6,8 +6,8 @@ layout. This pass is where a later reader can turn that leftover into text.
 Until then the region stays whole, with its original markup beside the marker.
 """
 
-from shark_byte.extract.sections import assign_indexes
-from shark_byte.schemas import Section
+from ragbytes.extract.sections import assign_indexes
+from ragbytes.schemas import Section
 
 
 def prepare_for_chunking(sections: list[Section]) -> list[Section]:

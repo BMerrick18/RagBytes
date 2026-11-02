@@ -1,7 +1,7 @@
 """Split a document into fixed-size character windows."""
 
-from shark_byte.chunk.assemble import sections_for_chunking
-from shark_byte.schemas import Chunk, Section
+from ragbytes.chunk.assemble import sections_for_chunking
+from ragbytes.schemas import Chunk, Section
 
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 200

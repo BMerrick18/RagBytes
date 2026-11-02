@@ -9,7 +9,7 @@ x-logging: &logging
 
 services:
   api:
-    image: ghcr.io/bmerrick18/shark-byte-api:${IMAGE_TAG:-latest}
+    image: ghcr.io/bmerrick18/ragbytes-api:${IMAGE_TAG:-latest}
     build: .
     restart: unless-stopped
     logging: *logging
@@ -27,7 +27,7 @@ services:
           - ${STACK:?Set STACK in .env to prod or dev}-api
 
   web:
-    image: ghcr.io/bmerrick18/shark-byte-web:${IMAGE_TAG:-latest}
+    image: ghcr.io/bmerrick18/ragbytes-web:${IMAGE_TAG:-latest}
     build: ./web
     restart: unless-stopped
     logging: *logging

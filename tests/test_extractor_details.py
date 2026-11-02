@@ -7,8 +7,8 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
 
-from shark_byte.extract import pdf as pdf_module
-from shark_byte.extract.extractors import (
+from ragbytes.extract import pdf as pdf_module
+from ragbytes.extract.extractors import (
     extract_docx,
     extract_html,
     extract_markdown,

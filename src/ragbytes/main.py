@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from shark_byte.api.routes import router
-from shark_byte.config import settings
-from shark_byte.schemas import HealthResponse
+from ragbytes.api.routes import router
+from ragbytes.config import settings
+from ragbytes.schemas import HealthResponse
 
 DESCRIPTION = """
 Turn PDFs, Word documents, web pages, Markdown and plain text into chunks that are ready to embed.

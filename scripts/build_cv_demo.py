@@ -11,11 +11,11 @@ chunkers' own rules. The script fails if those steps stop matching the real chun
 import json
 from pathlib import Path
 
-from shark_byte.chunk import simple, structured
-from shark_byte.chunk.registry import CHUNKERS
-from shark_byte.extract.complex import prepare_for_chunking
-from shark_byte.extract.registry import get_extractor
-from shark_byte.schemas import Section
+from ragbytes.chunk import simple, structured
+from ragbytes.chunk.registry import CHUNKERS
+from ragbytes.extract.complex import prepare_for_chunking
+from ragbytes.extract.registry import get_extractor
+from ragbytes.schemas import Section
 
 ROOT = Path(__file__).resolve().parent.parent
 SAMPLE = ROOT / "web" / "public" / "sample-report.docx"

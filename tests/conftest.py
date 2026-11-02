@@ -1,6 +1,6 @@
 import pytest
 
-from shark_byte.config import settings
+from ragbytes.config import settings
 
 
 @pytest.fixture(autouse=True)

@@ -4,14 +4,14 @@ import re
 
 from bs4 import BeautifulSoup, Comment, NavigableString, Tag
 
-from shark_byte.extract.render import (
+from ragbytes.extract.render import (
     render_chart,
     render_complex,
     render_image,
     render_paragraph,
     render_table,
 )
-from shark_byte.extract.sections import (
+from ragbytes.extract.sections import (
     HeadingState,
     add_section,
     assign_indexes,
@@ -19,7 +19,7 @@ from shark_byte.extract.sections import (
     image_from_data_uri,
     looks_like_heading,
 )
-from shark_byte.schemas import Section, SectionKind
+from ragbytes.schemas import Section, SectionKind
 
 _HEADINGS = {"h1": 1, "h2": 2, "h3": 3, "h4": 4, "h5": 5, "h6": 6}
 _MSO_HEADING = re.compile(r"msoheading([1-6])")

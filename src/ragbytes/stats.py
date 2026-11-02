@@ -8,8 +8,8 @@ import sqlite3
 from contextlib import closing
 from pathlib import Path
 
-from shark_byte.config import settings
-from shark_byte.schemas import StatsResponse
+from ragbytes.config import settings
+from ragbytes.schemas import StatsResponse
 
 logger = logging.getLogger(__name__)
 

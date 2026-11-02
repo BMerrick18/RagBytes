@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
-from shark_byte.config import settings
-from shark_byte.main import app
+from ragbytes.config import settings
+from ragbytes.main import app
 
 NOTES = {"file": ("notes.txt", b"First paragraph.\n\nSecond paragraph.", "text/plain")}
 

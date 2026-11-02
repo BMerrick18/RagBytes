@@ -1,4 +1,4 @@
-from shark_byte.extract.registry import get_extractor
+from ragbytes.extract.registry import get_extractor
 
 
 def test_known_suffix_resolves():

@@ -11,7 +11,7 @@ RUN pip install . && useradd --create-home app && mkdir data && chown app data
 
 USER app
 ARG VERSION=dev
-ENV SHARK_BYTE_VERSION=$VERSION \
+ENV RAGBYTES_VERSION=$VERSION \
     WEB_CONCURRENCY=2
 EXPOSE 8000
-CMD ["uvicorn", "shark_byte.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "ragbytes.main:app", "--host", "0.0.0.0", "--port", "8000"]
