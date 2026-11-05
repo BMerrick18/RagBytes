@@ -34,7 +34,6 @@ export function RagByteApp() {
   const [running, setRunning] = useState(false);
   const [loadingSample, setLoadingSample] = useState(false);
   const [sampleError, setSampleError] = useState<string | null>(null);
-  const [statsVersion, setStatsVersion] = useState(0);
   const [tiersOpen, setTiersOpen] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
   const tierPickerId = useId();
@@ -80,7 +79,6 @@ export function RagByteApp() {
       }
     }
     setRunning(false);
-    setStatsVersion((version) => version + 1);
   }
 
   function remove(id: string) {
@@ -130,7 +128,7 @@ export function RagByteApp() {
         </div>
         <div className="flex w-full shrink-0 flex-col gap-3 sm:w-96 sm:self-start lg:col-start-2 lg:row-start-1 lg:w-auto">
           <FounderCard />
-          <UsageStats refresh={statsVersion} />
+          <UsageStats />
         </div>
       </header>
 

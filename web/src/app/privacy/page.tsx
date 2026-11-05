@@ -29,8 +29,8 @@ export default function PrivacyPage() {
       <DocSection title="What is recorded">
         <ul className="flex list-disc flex-col gap-2 pl-5">
           <li>
-            We keep two running totals, shown on the home page: how many documents have been chunked and how many chunks
-            were made. They are plain numbers, with nothing about who uploaded what or what the documents said.
+            We keep two running totals: how many documents have been chunked and how many chunks were made. They are
+            plain numbers, with nothing about who uploaded what or what the documents said.
           </li>
           <li>
             Our server keeps short-lived technical logs of each request (time, address requested and response status)
