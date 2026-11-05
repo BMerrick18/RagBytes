@@ -1,7 +1,7 @@
-from shark_byte.chunk.registry import get_chunker
-from shark_byte.chunk.simple import chunk_simple
-from shark_byte.chunk.structured import chunk_structured
-from shark_byte.schemas import Section
+from ragbytes.chunk.registry import get_chunker
+from ragbytes.chunk.simple import chunk_simple
+from ragbytes.chunk.structured import chunk_structured
+from ragbytes.schemas import Section
 
 
 def test_simple_is_registered_as_basic():

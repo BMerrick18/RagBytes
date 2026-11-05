@@ -1,6 +1,6 @@
 """Sections kept after a file has been extracted."""
 
-from shark_byte.schemas import Section
+from ragbytes.schemas import Section
 
 
 class ExtractedData:

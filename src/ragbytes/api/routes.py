@@ -6,11 +6,11 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
-from shark_byte import stats
-from shark_byte.chunk.registry import CHUNKERS, DESCRIPTIONS, Chunker
-from shark_byte.extract.complex import prepare_for_chunking
-from shark_byte.extract.registry import EXTRACTORS, Extractor, get_extractor
-from shark_byte.schemas import ChunkingMethod, ChunkResponse, ErrorResponse, MethodsResponse, StatsResponse
+from ragbytes import stats
+from ragbytes.chunk.registry import CHUNKERS, DESCRIPTIONS, Chunker
+from ragbytes.extract.complex import prepare_for_chunking
+from ragbytes.extract.registry import EXTRACTORS, Extractor, get_extractor
+from ragbytes.schemas import ChunkingMethod, ChunkResponse, ErrorResponse, MethodsResponse, StatsResponse
 
 router = APIRouter()
 

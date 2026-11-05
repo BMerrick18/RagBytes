@@ -1,4 +1,4 @@
-from shark_byte.schemas import Chunk, ChunkDetails, ChunkMetadata, Section
+from ragbytes.schemas import Chunk, ChunkDetails, ChunkMetadata, Section
 
 _TEXT_MEDIA_TYPES = frozenset({"application/xml", "application/xhtml+xml"})
 

@@ -1,5 +1,5 @@
-from shark_byte.chunk.assemble import sections_for_chunking
-from shark_byte.schemas import Section
+from ragbytes.chunk.assemble import sections_for_chunking
+from ragbytes.schemas import Section
 
 
 def test_text_sections_keep_their_file_metadata():

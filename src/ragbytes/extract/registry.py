@@ -1,13 +1,13 @@
 from collections.abc import Callable
 
-from shark_byte.extract.extractors import (
+from ragbytes.extract.extractors import (
     extract_docx,
     extract_html,
     extract_markdown,
     extract_pdf,
     extract_text,
 )
-from shark_byte.schemas import Section
+from ragbytes.schemas import Section
 
 Extractor = Callable[[bytes], list[Section]]
 

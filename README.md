@@ -1,4 +1,4 @@
-# shark-byte
+# RagBytes
 
 Service that accepts uploaded files and returns text chunks.
 
@@ -13,7 +13,7 @@ pip install -e ".[dev]"
 ## Run
 
 ```bash
-uvicorn shark_byte.main:app --reload
+uvicorn ragbytes.main:app --reload
 ```
 
 Each chunking tier has its own endpoint taking a `file` upload: `POST /v1/chunk/basic` and

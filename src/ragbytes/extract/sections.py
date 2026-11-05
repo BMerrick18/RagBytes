@@ -4,8 +4,8 @@ import base64
 import binascii
 import re
 
-from shark_byte.extract.render import normalize_inline, render_image
-from shark_byte.schemas import Section, SectionKind
+from ragbytes.extract.render import normalize_inline, render_image
+from ragbytes.schemas import Section, SectionKind
 
 _DATA_URI = re.compile(
     r"data:(image/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=\s]+)",

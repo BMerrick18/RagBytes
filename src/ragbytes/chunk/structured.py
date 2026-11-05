@@ -2,9 +2,9 @@
 
 from dataclasses import dataclass, field
 
-from shark_byte.chunk.assemble import sections_for_chunking
-from shark_byte.chunk.simple import WHOLE_KINDS, piece_texts, prepared_sections
-from shark_byte.schemas import Chunk, Section
+from ragbytes.chunk.assemble import sections_for_chunking
+from ragbytes.chunk.simple import WHOLE_KINDS, piece_texts, prepared_sections
+from ragbytes.schemas import Chunk, Section
 
 CHUNK_SIZE = 2000
 

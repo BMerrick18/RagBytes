@@ -12,8 +12,8 @@ from docx.oxml.ns import qn
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 
-from shark_byte.extract.docx_numbering import ListNumbering
-from shark_byte.extract.render import (
+from ragbytes.extract.docx_numbering import ListNumbering
+from ragbytes.extract.render import (
     normalize_inline,
     render_chart,
     render_complex,
@@ -21,13 +21,13 @@ from shark_byte.extract.render import (
     render_paragraph,
     render_table,
 )
-from shark_byte.extract.sections import (
+from ragbytes.extract.sections import (
     HeadingState,
     add_section,
     assign_indexes,
     looks_like_heading,
 )
-from shark_byte.schemas import Section
+from ragbytes.schemas import Section
 
 _HEADING = re.compile(r"^heading\s+([1-9])$", re.IGNORECASE)
 _HEADING_ID = re.compile(r"^heading\s*([1-9])$", re.IGNORECASE)

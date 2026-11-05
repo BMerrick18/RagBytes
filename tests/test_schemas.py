@@ -1,6 +1,6 @@
 import base64
 
-from shark_byte.schemas import Chunk, ChunkDetails, ChunkMetadata
+from ragbytes.schemas import Chunk, ChunkDetails, ChunkMetadata
 
 
 def test_chunk_carries_file_and_section_metadata():

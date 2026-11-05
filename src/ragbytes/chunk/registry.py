@@ -2,9 +2,9 @@
 
 from collections.abc import Callable
 
-from shark_byte.chunk.simple import chunk_simple
-from shark_byte.chunk.structured import chunk_structured
-from shark_byte.schemas import Chunk
+from ragbytes.chunk.simple import chunk_simple
+from ragbytes.chunk.structured import chunk_structured
+from ragbytes.schemas import Chunk
 
 Chunker = Callable[..., list[Chunk]]
 

@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="SHARK_BYTE_")
+    model_config = SettingsConfigDict(env_prefix="RAGBYTES_")
 
     app_name: str = "RagBytes API"
     version: str = "dev"

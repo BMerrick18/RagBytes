@@ -1,6 +1,6 @@
-from shark_byte.chunk.registry import get_chunker
-from shark_byte.chunk.structured import chunk_structured
-from shark_byte.schemas import Section
+from ragbytes.chunk.registry import get_chunker
+from ragbytes.chunk.structured import chunk_structured
+from ragbytes.schemas import Section
 
 
 def _text(index: int, headings: list[str], data: str, page: int | None = None) -> Section:

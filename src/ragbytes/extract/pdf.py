@@ -60,7 +60,7 @@ from typing import NamedTuple
 import pdfplumber
 from pdfplumber.utils.exceptions import PdfminerException
 
-from shark_byte.extract.render import (
+from ragbytes.extract.render import (
     normalize_inline,
     render_complex,
     render_image,
@@ -72,16 +72,16 @@ from pdfminer.pdfdocument import PDFNoOutlines
 from pdfminer.pdfparser import PDFSyntaxError
 from pdfminer.psexceptions import PSEOF
 
-from shark_byte.extract.pdf_clipping import Clipped, clipped_chars, open_document
-from shark_byte.extract.pdf_drawings import find_drawings
-from shark_byte.extract.sections import (
+from ragbytes.extract.pdf_clipping import Clipped, clipped_chars, open_document
+from ragbytes.extract.pdf_drawings import find_drawings
+from ragbytes.extract.sections import (
     TABLE_LABEL,
     HeadingState,
     add_section,
     assign_indexes,
     looks_like_heading,
 )
-from shark_byte.schemas import Section
+from ragbytes.schemas import Section
 
 _PAGE_NUMBER = re.compile(
     r"^(?:(?:page\s+)?\d{1,4}(?:\s+of\s+\d{1,4})?|of\s+\d{1,4})$", re.IGNORECASE

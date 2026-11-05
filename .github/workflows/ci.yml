@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 env:
-  IMAGE_PREFIX: ghcr.io/bmerrick18/shark-byte
+  IMAGE_PREFIX: ghcr.io/bmerrick18/ragbytes
 
 jobs:
   api-tests:

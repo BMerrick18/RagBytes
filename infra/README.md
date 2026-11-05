@@ -27,7 +27,7 @@ Both run on the same Droplet; see [deploy/README.md](../deploy/README.md) for th
 | `deploy.yml` (*Deploy steps*) | Called by the two above, never on its own | The deploy steps shared by dev and prod; its runs appear inside CI and Deploy to production as *Release dev* / *Release prod* |
 
 Images are tagged with the full commit SHA and `latest`:
-`ghcr.io/bmerrick18/shark-byte-api` and `ghcr.io/bmerrick18/shark-byte-web`. Prod never builds
+`ghcr.io/bmerrick18/ragbytes-api` and `ghcr.io/bmerrick18/ragbytes-web`. Prod never builds
 anything: it releases the exact images CI built for that commit, the same ones dev is running.
 
 ### Deploying to production

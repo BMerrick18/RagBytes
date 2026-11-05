@@ -6,9 +6,9 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-from shark_byte.chunk.simple import chunk_simple
-from shark_byte.extract.complex import prepare_for_chunking
-from shark_byte.extract.registry import get_extractor
+from ragbytes.chunk.simple import chunk_simple
+from ragbytes.extract.complex import prepare_for_chunking
+from ragbytes.extract.registry import get_extractor
 
 ROOT = Path(__file__).parent / "test_documents"
 FILES = [

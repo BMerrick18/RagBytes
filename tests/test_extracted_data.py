@@ -1,6 +1,6 @@
-from shark_byte.extract.complex import prepare_for_chunking, read_complex
-from shark_byte.extract.extracted_data import ExtractedData
-from shark_byte.schemas import Section
+from ragbytes.extract.complex import prepare_for_chunking, read_complex
+from ragbytes.extract.extracted_data import ExtractedData
+from ragbytes.schemas import Section
 
 
 def test_extracted_data_keeps_simple_and_complex_sections():
