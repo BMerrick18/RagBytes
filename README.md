@@ -16,8 +16,12 @@ pip install -e ".[dev]"
 uvicorn ragbytes.main:app --reload
 ```
 
-Each chunking tier has its own endpoint taking a `file` upload: `POST /v1/chunk/basic` and
-`POST /v1/chunk/structured`. `GET /v1/methods` lists the tiers, their endpoints and the file types,
+Semantic chunking needs `RAGBYTES_OPENAI_API_KEY` in the environment. The key stays on the server.
+The request is a file only. Passage text is sent to OpenAI and discarded with the file. Without the
+key, that endpoint returns 503 and the other tiers keep working.
+
+Each chunking tier has its own endpoint taking a `file` upload: `POST /v1/chunk/basic`,
+`POST /v1/chunk/structured`, and `POST /v1/chunk/semantic`. `GET /v1/methods` lists the tiers, their endpoints and the file types,
 and `GET /health` reports the running build.
 
 Interactive docs are served at <http://localhost:8000/docs> (Swagger UI) and `/redoc`, and the

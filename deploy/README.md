@@ -28,7 +28,8 @@ of those does.
 ```
 
 Deploys rewrite `COMPOSE_PROJECT_NAME`, `STACK`, `IMAGE_TAG` and `PUBLIC_API_URL` in a stack's
-`.env` and leave any other lines, such as `API_WORKERS`, alone. Container logs rotate at 10 MB,
+`.env` and leave any other lines, such as `API_WORKERS` and `RAGBYTES_OPENAI_API_KEY`, alone.
+Container logs rotate at 10 MB,
 keeping three files per container.
 
 Each stack's API keeps its running totals for `GET /v1/stats` (documents chunked, chunks returned)
@@ -79,8 +80,13 @@ DEV_API_DOMAIN=api-dev.ragbytes.com
 CERTS_DIR=/etc/ragbyte/certs
 EOF
 echo "API_WORKERS=2" > /opt/ragbyte/prod/.env
+echo "RAGBYTES_OPENAI_API_KEY=" >> /opt/ragbyte/prod/.env
 echo "API_WORKERS=1" > /opt/ragbyte/dev/.env
+echo "RAGBYTES_OPENAI_API_KEY=" >> /opt/ragbyte/dev/.env
 ```
+
+Put the OpenAI key in `RAGBYTES_OPENAI_API_KEY` on each stack that should offer semantic chunking.
+The key stays in that file. Requests do not carry one. Leave the line empty and that tier returns 503.
 
 ### 5. Deploy
 

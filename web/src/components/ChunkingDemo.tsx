@@ -153,7 +153,9 @@ export function ChunkingDemo({ tier, startOpen = false }: { tier: string; startO
               </div>
               {illustration && (
                 <p className="rounded-lg border border-dashed border-zinc-700 px-3 py-2 text-xs text-zinc-400">
-                  Coming soon. This is an illustration of what the tier will do, not real output.
+                  {TIERS.find((option) => option.id === shown)?.available
+                    ? "A sketch of the idea. An upload uses live embeddings, and a chunk stays inside its heading."
+                    : "Coming soon. This is an illustration of what the tier will do, not real output."}
                 </p>
               )}
               <ol className="flex flex-col gap-2">

@@ -151,7 +151,8 @@ export function RagByteApp() {
         <Dropzone onFiles={addFiles} disabled={running} />
         <p className="text-sm text-zinc-500">
           <span className="font-semibold text-zinc-200">No data is stored.</span> Your files are processed in memory
-          and discarded as soon as the chunks are returned.{" "}
+          and discarded as soon as the chunks are returned. Semantic sends the passage text to OpenAI for the
+          comparison, then discards that too.{" "}
           <Link href="/privacy" className="text-zinc-400 underline underline-offset-4 hover:text-zinc-200">
             Privacy
           </Link>

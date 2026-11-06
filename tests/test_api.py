@@ -1,6 +1,16 @@
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 
+from ragbytes.config import settings
 from ragbytes.main import app
+
+
+class _FakeEmbedder:
+    def __init__(self, api_key: str, model: str = "", timeout: float = 60) -> None:
+        self.api_key = api_key
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        return [[0.0, 1.0] if "tariff" in text else [1.0, 0.0] for text in texts]
 
 
 def test_health_reports_version():
@@ -16,6 +26,7 @@ def test_methods_lists_chunkers_and_file_types():
     assert [(method["name"], method["path"]) for method in body["methods"]] == [
         ("basic", "/v1/chunk/basic"),
         ("structured", "/v1/chunk/structured"),
+        ("semantic", "/v1/chunk/semantic"),
     ]
     assert all(method["description"] for method in body["methods"])
     assert ".pdf" in body["file_types"]
@@ -25,13 +36,25 @@ def test_openapi_documents_public_routes():
     client = TestClient(app)
     spec = client.get("/openapi.json").json()
     assert spec["info"]["title"] == "RagBytes API"
-    assert set(spec["paths"]) == {"/v1/chunk/basic", "/v1/chunk/structured", "/v1/methods", "/v1/stats", "/health"}
+    assert set(spec["paths"]) == {
+        "/v1/chunk/basic",
+        "/v1/chunk/structured",
+        "/v1/chunk/semantic",
+        "/v1/methods",
+        "/v1/stats",
+        "/health",
+    }
+    semantic = spec["paths"]["/v1/chunk/semantic"]["post"]
+    assert list(semantic["requestBody"]["content"]) == ["multipart/form-data"]
+    assert "api_key" not in semantic["requestBody"]["content"]["multipart/form-data"]["schema"].get("properties", {})
     structured = spec["paths"]["/v1/chunk/structured"]["post"]
     assert structured["tags"] == ["chunking"]
     assert list(structured["requestBody"]["content"]) == ["multipart/form-data"]
 
 
-def test_each_listed_method_path_is_served():
+def test_each_listed_method_path_is_served(monkeypatch):
+    monkeypatch.setattr(settings, "openai_api_key", SecretStr("sk-test"))
+    monkeypatch.setattr("ragbytes.chunk.semantic.hosted.OpenAIEmbedder", _FakeEmbedder)
     client = TestClient(app)
     for method in client.get("/v1/methods").json()["methods"]:
         response = client.post(method["path"], files={"file": ("notes.txt", b"Some text.", "text/plain")})
@@ -143,3 +166,54 @@ def test_upload_returns_chunks_in_file_order():
         start = chunk["metadata"]["details"]["start"]
         end = chunk["metadata"]["details"]["end"]
         assert joined[start:end] == chunk["content"]
+
+
+def test_semantic_without_a_server_key_is_unavailable(monkeypatch):
+    monkeypatch.setattr(settings, "openai_api_key", SecretStr(""))
+    response = TestClient(app).post(
+        "/v1/chunk/semantic",
+        files={"file": ("notes.txt", b"Warm the lamp.\n\nRead the meter.\n", "text/plain")},
+    )
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Semantic chunking is unavailable."
+    assert "sk-" not in response.text
+
+
+def test_semantic_uses_the_server_key_and_returns_chunks(monkeypatch):
+    seen: dict[str, str] = {}
+
+    class _Capture(_FakeEmbedder):
+        def __init__(self, api_key: str, model: str = "", timeout: float = 60) -> None:
+            super().__init__(api_key)
+            seen["key"] = api_key
+
+    monkeypatch.setattr(settings, "openai_api_key", SecretStr("sk-server"))
+    monkeypatch.setattr("ragbytes.chunk.semantic.hosted.OpenAIEmbedder", _Capture)
+    response = TestClient(app).post(
+        "/v1/chunk/semantic",
+        files={"file": ("notes.txt", b"Warm the lamp.\n\nThe tariff changed the quay.\n", "text/plain")},
+    )
+    assert response.status_code == 200
+    assert seen["key"] == "sk-server"
+    assert "sk-server" not in response.text
+    body = response.json()
+    assert [chunk["content"] for chunk in body["chunks"]] == ["Warm the lamp.", "The tariff changed the quay."]
+
+
+def test_a_failed_embedding_does_not_reveal_the_key(monkeypatch):
+    class _Boom:
+        def __init__(self, api_key: str, model: str = "", timeout: float = 60) -> None:
+            raise RuntimeError(f"Embedding request failed (401): Incorrect API key provided: {api_key}")
+
+        def embed(self, texts: list[str]) -> list[list[float]]:
+            return []
+
+    monkeypatch.setattr(settings, "openai_api_key", SecretStr("sk-server"))
+    monkeypatch.setattr("ragbytes.chunk.semantic.hosted.OpenAIEmbedder", _Boom)
+    response = TestClient(app).post(
+        "/v1/chunk/semantic",
+        files={"file": ("notes.txt", b"Warm the lamp.\n\nRead the meter.\n", "text/plain")},
+    )
+    assert response.status_code == 502
+    assert response.json()["detail"] == "The document could not be embedded."
+    assert "sk-server" not in response.text

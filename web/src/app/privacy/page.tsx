@@ -21,7 +21,12 @@ export default function PrivacyPage() {
             The file is held only while that request runs. It is never written to a database or file store, and it is
             discarded as soon as the response is sent.
           </li>
-          <li>We don&apos;t read, share, sell or train models on your documents or their chunks.</li>
+          <li>We don&apos;t read, sell, or train models on your documents or their chunks.</li>
+          <li>
+            Semantic chunking sends the passage text to OpenAI to decide where the meaning shifts. That text is
+            discarded with the file when the response is sent. RagBytes uses its own OpenAI key. You are not asked
+            for one. Basic and Structured stay on our server.
+          </li>
           <li>Chunks are shown in your browser only. Closing or reloading the page clears them.</li>
         </ul>
       </DocSection>

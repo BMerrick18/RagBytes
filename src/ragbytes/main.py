@@ -9,9 +9,11 @@ DESCRIPTION = """
 Turn PDFs, Word documents, web pages, Markdown and plain text into chunks that are ready to embed.
 
 Each chunking tier has its own endpoint: upload a file as `multipart/form-data` to
-`POST /v1/chunk/basic` or `POST /v1/chunk/structured`. Each chunk comes back with `embed_text` (its
-heading path, a blank line, then its text) to send to your embedding model, `content` to store
-alongside the vector, and `metadata` describing where it came from.
+`POST /v1/chunk/basic`, `POST /v1/chunk/structured`, or `POST /v1/chunk/semantic`. Each chunk comes
+back with `embed_text` (its heading path, a blank line, then its text) to send to your embedding
+model, `content` to store alongside the vector, and `metadata` describing where it came from.
+Semantic sends passage text to OpenAI to find the cuts, then discards it with the file. The
+upload is a file only.
 
 Uploads are processed in memory and discarded once the response is sent. The service only keeps a
 running count of documents chunked and chunks returned. Requests are limited to 50 MB, about 100
