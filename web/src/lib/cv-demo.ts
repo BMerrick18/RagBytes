@@ -71,32 +71,52 @@ export const DEMO_TIERS: Record<string, DemoTier> = {
   semantic: {
     illustration: true,
     explanation:
-      "Semantic will embed each passage and cut where the meaning shifts, whatever the headings say. The kit list and the North Pier observations would stay together because they describe the same trial, while the night readings and the follow-up separate.",
+      "Semantic embeds neighbouring passages and starts a new chunk where the meaning shifts. A chunk stays inside its heading. On the Readings heading, the date and the weather can stay together while the lux list starts a new chunk. Follow-up stays separate because it is the next heading.",
     chunks: [
       {
-        sections: [0, 1],
-        topic: "What the trial is",
-        why: "The opening line and the overview both introduce the lighting trial, so their meaning is close enough to stay together.",
+        sections: [0],
+        topic: "The title",
+        why: "The title is its own heading, so it is its own chunk.",
       },
       {
-        sections: [2, 3, 4],
-        topic: "Kit and North Pier",
-        why: "The kit list and the North Pier notes name the same lamps and describe what they did on the pier, so the topic carries on across the heading.",
+        sections: [1],
+        topic: "The aim",
+        why: "Overview is the next heading. The comparison never crosses that line.",
       },
       {
-        sections: [5, 6, 7],
-        topic: "One night's readings",
-        why: "The language turns from the week's setup to the measurements on 12 March, so a new chunk starts here.",
+        sections: [2],
+        topic: "The kit",
+        why: "The kit list is one short list under its own heading, so it stays whole.",
       },
       {
-        sections: [8, 9, 10],
-        topic: "How it was run",
-        why: "The walk, the sodium baseline and the follow-up are all about running the trial, so they're grouped even though Follow-up has its own heading.",
+        sections: [3, 4],
+        topic: "North Pier",
+        why: "Both passages sit under North Pier and describe the same stretch of the trial.",
+      },
+      {
+        sections: [5, 6],
+        topic: "The night",
+        why: "The date and the weather are the same moment, so they stay together.",
+      },
+      {
+        sections: [7],
+        topic: "The measurements",
+        why: "The lux readings are a shift in subject under Readings, so they start a new chunk.",
+      },
+      {
+        sections: [8, 9],
+        topic: "The method",
+        why: "The walk and the sodium baseline are both how the trial was run.",
+      },
+      {
+        sections: [10],
+        topic: "Follow-up",
+        why: "Follow-up is a new heading, so it starts a new chunk even when the subject is close.",
       },
       {
         sections: [11, 12],
         topic: "Who to ask",
-        why: "Office names and contact details are a clear change of subject.",
+        why: "The two contact lines share a heading and a subject.",
       },
     ],
   },

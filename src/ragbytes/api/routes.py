@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field
 
 from ragbytes import stats
 from ragbytes.chunk.registry import CHUNKERS, DESCRIPTIONS, Chunker
+from ragbytes.chunk.semantic.hosted import SemanticEmbedError, SemanticNotConfigured
+from ragbytes.config import settings
 from ragbytes.extract.complex import prepare_for_chunking
 from ragbytes.extract.registry import EXTRACTORS, Extractor, get_extractor
 from ragbytes.schemas import ChunkingMethod, ChunkResponse, ErrorResponse, MethodsResponse, StatsResponse
@@ -65,6 +67,28 @@ async def chunk_basic(upload: Upload) -> ChunkResponse:
 )
 async def chunk_structured(upload: Upload) -> ChunkResponse:
     return await _chunk(upload.file, CHUNKERS["structured"])
+
+
+@router.post(
+    "/chunk/semantic",
+    tags=["chunking"],
+    summary="Semantic: splits where the meaning changes",
+    description=DESCRIPTIONS["semantic"],
+    responses={
+        **ERRORS,
+        502: {"model": ErrorResponse, "description": "The document could not be embedded."},
+        503: {"model": ErrorResponse, "description": "Semantic chunking is not configured."},
+    },
+)
+async def chunk_semantic(upload: Upload) -> ChunkResponse:
+    if not settings.openai_api_key.get_secret_value().strip():
+        raise HTTPException(status_code=503, detail="Semantic chunking is unavailable.")
+    try:
+        return await _chunk(upload.file, CHUNKERS["semantic"])
+    except SemanticNotConfigured as exc:
+        raise HTTPException(status_code=503, detail="Semantic chunking is unavailable.") from exc
+    except SemanticEmbedError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 async def _chunk(file: UploadFile, chunker: Chunker) -> ChunkResponse:

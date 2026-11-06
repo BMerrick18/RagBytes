@@ -1,4 +1,5 @@
 from ragbytes.chunk.registry import get_chunker
+from ragbytes.chunk.semantic.hosted import chunk_semantic_hosted
 from ragbytes.chunk.simple import chunk_simple
 from ragbytes.chunk.structured import chunk_structured
 from ragbytes.schemas import Section
@@ -6,7 +7,7 @@ from ragbytes.schemas import Section
 
 def test_simple_is_registered_as_basic():
     assert get_chunker("basic") is chunk_simple
-    assert get_chunker("semantic") is None
+    assert get_chunker("semantic") is chunk_semantic_hosted
 
 
 def test_each_chunk_has_its_own_id():

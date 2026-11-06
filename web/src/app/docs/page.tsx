@@ -82,7 +82,8 @@ async function ApiDocs() {
 
       <DocSection title="Chunking endpoints">
         <p>
-          Basic and Structured take the same upload and return the same response. Supported file types:{" "}
+          Each tier takes the same file upload and returns the same response. Semantic sends the passage text to
+          OpenAI to find the cuts, then discards it. Supported file types:{" "}
           {ACCEPTED_EXTENSIONS.join(", ")}.
         </p>
         <ul className="flex flex-col divide-y divide-zinc-800 rounded-xl border border-zinc-800 bg-zinc-900/40">
@@ -141,6 +142,8 @@ async function ApiDocs() {
           <Status code="404">No such tier, or the tier isn&apos;t available yet.</Status>
           <Status code="413">The upload is over 50 MB.</Status>
           <Status code="415">The filename suffix isn&apos;t a supported file type.</Status>
+          <Status code="502">Semantic could not embed the document. The file was discarded.</Status>
+          <Status code="503">Semantic chunking is not configured on the server.</Status>
           <Status code="429">
             More than 10 chunking requests in 10 seconds from your address. Wait 10 seconds and retry.
           </Status>

@@ -61,7 +61,7 @@ resource "cloudflare_ruleset" "rate_limit" {
 
   rules = [{
     description = "Chunking requests per address"
-    expression  = "(http.request.uri.path in {\"/api/chunks\" \"/v1/chunk/basic\" \"/v1/chunk/structured\"})"
+    expression  = "(http.request.uri.path in {\"/api/chunks\" \"/v1/chunk/basic\" \"/v1/chunk/structured\" \"/v1/chunk/semantic\"})"
     action      = "block"
     enabled     = true
     ratelimit = {

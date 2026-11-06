@@ -29,8 +29,8 @@ export const TIERS: Tier[] = [
     name: "Semantic",
     tagline: "Splits where the meaning changes",
     description:
-      "Compares the meaning of neighbouring passages with embeddings and starts a new chunk where the topic shifts.",
-    available: false,
+      "Embeds neighbouring passages and starts a new chunk where the meaning shifts. A chunk stays inside its heading. The passage text is sent to OpenAI for those embeddings and then discarded.",
+    available: true,
   },
   {
     id: "enriched",

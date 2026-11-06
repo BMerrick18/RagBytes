@@ -157,6 +157,9 @@ def build_demo() -> dict:
         "tiers": {},
     }
     for name, chunker in CHUNKERS.items():
+        # Semantic cuts depend on live embeddings, so the home page sketches that tier by hand.
+        if name != "basic" and name not in STEPS:
+            continue
         produced = list(chunker(sections, filename=SAMPLE.name))
         if name == "basic":
             plan = _basic_plan(sections, position)

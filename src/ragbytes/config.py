@@ -1,3 +1,4 @@
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -7,6 +8,8 @@ class Settings(BaseSettings):
     app_name: str = "RagBytes API"
     version: str = "dev"
     stats_path: str = "data/stats.db"
+    # Server key for semantic chunking. Empty means that tier is unavailable.
+    openai_api_key: SecretStr = SecretStr("")
 
 
 settings = Settings()

@@ -2,17 +2,19 @@
 
 from collections.abc import Callable
 
+from ragbytes.chunk.semantic.hosted import chunk_semantic_hosted
 from ragbytes.chunk.simple import chunk_simple
 from ragbytes.chunk.structured import chunk_structured
 from ragbytes.schemas import Chunk
 
 Chunker = Callable[..., list[Chunk]]
 
-# semantic and enriched register here once each method is written. Each tier is served at
+# enriched registers here once that method is written. Each tier is served at
 # POST /v1/chunk/<name>.
 CHUNKERS: dict[str, Chunker] = {
     "basic": chunk_simple,
     "structured": chunk_structured,
+    "semantic": chunk_semantic_hosted,
 }
 
 DESCRIPTIONS: dict[str, str] = {
@@ -25,6 +27,11 @@ DESCRIPTIONS: dict[str, str] = {
         "One chunk per heading and subheading, with no minimum length. A short subsection stays its own "
         "chunk, and a section is split only once it passes about 2,000 characters. When a paragraph is "
         "split, the next chunk repeats its last sentence."
+    ),
+    "semantic": (
+        "Embeds neighbouring passages and starts a new chunk where the meaning shifts. A chunk stays "
+        "inside one heading. Passage text is sent to OpenAI for those embeddings and then discarded. "
+        "The upload is a file only."
     ),
 }
 
