@@ -1,4 +1,4 @@
-export const SAMPLE_DOCUMENT = { url: "/sample-report.docx", name: "Harbour lighting trial.docx" };
+export const SAMPLE_DOCUMENT = { url: "/sample-report.docx", name: "Saturday bakery notes.docx" };
 
 export async function loadSampleDocument(): Promise<File> {
   const response = await fetch(SAMPLE_DOCUMENT.url);

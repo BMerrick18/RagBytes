@@ -1,100 +1,51 @@
 {
-  "title": "Harbour lighting trial",
+  "title": "Saturday bakery notes",
   "limits": {
     "chunk_size": 500,
     "structured_chunk_size": 2000
   },
   "sections": [
     {
-      "heading": "Harbour lighting trial",
+      "heading": "Saturday bakery notes",
       "kind": "text",
-      "chars": 79,
-      "preview": "Field notes for the March trial at North Pier. Prepared for the harbour…",
-      "text": "Field notes for the March trial at North Pier. Prepared for the harbour office."
+      "chars": 74,
+      "preview": "Notes from the Saturday shift. Written for the person who opens on…",
+      "text": "Notes from the Saturday shift. Written for the person who opens on Sunday."
     },
     {
-      "heading": "Overview",
+      "heading": "The bread",
       "kind": "text",
-      "chars": 306,
-      "preview": "This note records a one-week trial of warmer quay lighting along North…",
-      "text": "This note records a one-week trial of warmer quay lighting along North Pier. The aim was to see whether crews could read mooring marks after dusk without extra hand lamps. Readings were taken at the same six bollards each night, in clear weather and in drizzle, and compared with the existing sodium lamps."
+      "chars": 149,
+      "preview": "The dough went in at six. Keep the oven at 220 degrees and bake the…",
+      "text": "The dough went in at six. Keep the oven at 220 degrees and bake the white loaves for 28 minutes. The crust should be deep brown before they come out."
     },
     {
-      "heading": "Kit",
-      "kind": "list",
-      "chars": 246,
-      "preview": "Lamps: six warm-white LED heads on the existing poles, aimed at the…",
-      "text": "- Lamps: six warm-white LED heads on the existing poles, aimed at the bollard line.\n- Meters: a handheld lux meter and a phone camera fixed at bollard height.\n- Marks: high-visibility paint on bollards 2, 4 and 6, left unchanged from last season."
-    },
-    {
-      "heading": "North Pier",
+      "heading": "The bread",
       "kind": "text",
-      "chars": 77,
-      "preview": "North Pier: the first stretch of the trial, from the steps to the fuel…",
-      "text": "North Pier: the first stretch of the trial, from the steps to the fuel berth."
+      "chars": 120,
+      "preview": "The rye loaves need ten more minutes than the white ones. Leave them on…",
+      "text": "The rye loaves need ten more minutes than the white ones. Leave them on the rack by the window so the crust stays crisp."
     },
     {
-      "heading": "North Pier",
-      "kind": "list",
-      "chars": 567,
-      "preview": "Bollard line: crews could read the numbers at 15 metres under the new…",
-      "text": "- Bollard line: crews could read the numbers at 15 metres under the new lamps, against 8 metres under the sodium lamps.\n- Glare: the warm heads threw less glare onto the water, so the opposite quay stayed readable from the helm.\n- Drizzle: on the wet night the painted marks held their contrast, while the unpainted bollards faded into the deck.\n- Power: the six heads drew less than the sodium pair they replaced, measured at the pier distribution board.\n- Shadows: the poles still leave a dark wedge behind each bollard, which the crew noticed when stepping ashore."
-    },
-    {
-      "heading": "Readings",
+      "heading": "The till",
       "kind": "text",
-      "chars": 18,
-      "preview": "Night of 12 March.",
-      "text": "Night of 12 March."
+      "chars": 147,
+      "preview": "The card machine settles overnight. Count the float to fifty pounds…",
+      "text": "The card machine settles overnight. Count the float to fifty pounds before the first customer, and put the notes in the blue tin under the counter."
     },
     {
-      "heading": "Readings",
+      "heading": "Before you leave",
       "kind": "text",
-      "chars": 59,
-      "preview": "Clear sky, light wind, no deck traffic during the readings.",
-      "text": "Clear sky, light wind, no deck traffic during the readings."
+      "chars": 183,
+      "preview": "Close the shop before you go home. Turn both ovens off, wipe the steel…",
+      "text": "Close the shop before you go home. Turn both ovens off, wipe the steel counters, lock the shop door, set the alarm with the code on the hook, and leave the cash drawer open and empty."
     },
     {
-      "heading": "Readings",
-      "kind": "list",
-      "chars": 490,
-      "preview": "Lux at the bollards: the warm lamps held a steady band, with no dark…",
-      "text": "- Lux at the bollards: the warm lamps held a steady band, with no dark gap between poles.\n- Camera check: numbers stayed legible in the fixed-phone frames without raising the exposure.\n- Crew notes: two night hands said they no longer needed a torch to find the stern line.\n- Repeat pass: a second walk an hour later matched the first, so the lamps were not warming into a brighter state.\n- Edge of the berth: the fuel pontoon, just past the last pole, dropped back to the old sodium level."
-    },
-    {
-      "heading": "Method",
+      "heading": "Before you leave",
       "kind": "text",
-      "chars": 112,
-      "preview": "Each night used the same walk: steps, bollards 1 to 6, then the fuel…",
-      "text": "Each night used the same walk: steps, bollards 1 to 6, then the fuel berth, with the meter held at waist height."
-    },
-    {
-      "heading": "Method",
-      "kind": "text",
-      "chars": 98,
-      "preview": "The sodium lamps were the baseline on night one. The warm heads ran on…",
-      "text": "The sodium lamps were the baseline on night one. The warm heads ran on the five nights after that."
-    },
-    {
-      "heading": "Follow-up",
-      "kind": "list",
-      "chars": 262,
-      "preview": "Fit the same heads on South Pier before the April tides, and repeat the…",
-      "text": "- Fit the same heads on South Pier before the April tides, and repeat the six-bollard walk.\n- Ask the night crew to log any lamp that flickers, with the pole number and the time.\n- Keep the painted marks as they are, so the next trial can compare like with like."
-    },
-    {
-      "heading": "Contacts",
-      "kind": "text",
-      "chars": 91,
-      "preview": "Harbour office, North Pier · lighting-trial@example.test · ask for the…",
-      "text": "Harbour office, North Pier · lighting-trial@example.test · ask for the duty harbour master."
-    },
-    {
-      "heading": "Contacts",
-      "kind": "text",
-      "chars": 64,
-      "preview": "Lumen Works, trial desk · notes@example.test · weekday mornings.",
-      "text": "Lumen Works, trial desk · notes@example.test · weekday mornings."
+      "chars": 110,
+      "preview": "The council tax for the flat upstairs is due on Monday. Pay it from the…",
+      "text": "The council tax for the flat upstairs is due on Monday. Pay it from the personal account, not the bakery till."
     }
   ],
   "tiers": {
@@ -102,138 +53,48 @@
       {
         "sections": [
           0,
-          1
+          1,
+          2,
+          3
         ],
-        "chars": 423,
+        "chars": 429,
         "headings": [
-          "Harbour lighting trial"
+          "Saturday bakery notes"
         ],
-        "text": "Harbour lighting trial\n\nField notes for the March trial at North Pier. Prepared for the harbour office.\n\nOverview\n\nThis note records a one-week trial of warmer quay lighting along North Pier. The aim was to see whether crews could read mooring marks after dusk without extra hand lamps. Readings were taken at the same six bollards each night, in clear weather and in drizzle, and compared with the existing sodium lamps.\n\n",
+        "text": "Saturday bakery notes\n\nNotes from the Saturday shift. Written for the person who opens on Sunday.\n\nThe bread\n\nThe dough went in at six. Keep the oven at 220 degrees and bake the white loaves for 28 minutes. The crust should be deep brown before they come out.\n\nThe rye loaves need ten more minutes than the white ones. Leave them on the rack by the window so the crust stays crisp.\n\nThe till\n\nThe card machine settles overnight. ",
         "steps": [
           {
             "sections": [
               0,
-              1
+              1,
+              2,
+              3
             ],
-            "chars": 423,
+            "chars": 429,
             "reason": "first"
           }
         ]
       },
       {
         "sections": [
-          2,
           3,
-          4
-        ],
-        "chars": 464,
-        "headings": [
-          "Harbour lighting trial",
-          "Kit"
-        ],
-        "text": "Kit\n\n- Lamps: six warm-white LED heads on the existing poles, aimed at the bollard line.\n- Meters: a handheld lux meter and a phone camera fixed at bollard height.\n- Marks: high-visibility paint on bollards 2, 4 and 6, left unchanged from last season.\n\nNorth Pier\n\nNorth Pier: the first stretch of the trial, from the steps to the fuel berth.\n\n- Bollard line: crews could read the numbers at 15 metres under the new lamps, against 8 metres under the sodium lamps.\n",
-        "steps": [
-          {
-            "sections": [
-              2,
-              3,
-              4
-            ],
-            "chars": 464,
-            "reason": "full"
-          }
-        ]
-      },
-      {
-        "sections": [
           4,
           5
         ],
-        "chars": 479,
+        "chars": 426,
         "headings": [
-          "Harbour lighting trial",
-          "North Pier"
+          "Saturday bakery notes",
+          "The till"
         ],
-        "text": "- Glare: the warm heads threw less glare onto the water, so the opposite quay stayed readable from the helm.\n- Drizzle: on the wet night the painted marks held their contrast, while the unpainted bollards faded into the deck.\n- Power: the six heads drew less than the sodium pair they replaced, measured at the pier distribution board.\n- Shadows: the poles still leave a dark wedge behind each bollard, which the crew noticed when stepping ashore.\n\nReadings\n\nNight of 12 March.\n\n",
+        "text": "Count the float to fifty pounds before the first customer, and put the notes in the blue tin under the counter.\n\nBefore you leave\n\nClose the shop before you go home. Turn both ovens off, wipe the steel counters, lock the shop door, set the alarm with the code on the hook, and leave the cash drawer open and empty.\n\nThe council tax for the flat upstairs is due on Monday. Pay it from the personal account, not the bakery till.",
         "steps": [
           {
             "sections": [
+              3,
               4,
               5
             ],
-            "chars": 479,
-            "reason": "full"
-          }
-        ]
-      },
-      {
-        "sections": [
-          6,
-          7
-        ],
-        "chars": 450,
-        "headings": [
-          "Harbour lighting trial",
-          "Readings"
-        ],
-        "text": "Clear sky, light wind, no deck traffic during the readings.\n\n- Lux at the bollards: the warm lamps held a steady band, with no dark gap between poles.\n- Camera check: numbers stayed legible in the fixed-phone frames without raising the exposure.\n- Crew notes: two night hands said they no longer needed a torch to find the stern line.\n- Repeat pass: a second walk an hour later matched the first, so the lamps were not warming into a brighter state.\n",
-        "steps": [
-          {
-            "sections": [
-              6,
-              7
-            ],
-            "chars": 450,
-            "reason": "full"
-          }
-        ]
-      },
-      {
-        "sections": [
-          7,
-          8,
-          9,
-          10
-        ],
-        "chars": 428,
-        "headings": [
-          "Harbour lighting trial",
-          "Readings"
-        ],
-        "text": "- Edge of the berth: the fuel pontoon, just past the last pole, dropped back to the old sodium level.\n\nMethod\n\nEach night used the same walk: steps, bollards 1 to 6, then the fuel berth, with the meter held at waist height.\n\nThe sodium lamps were the baseline on night one. The warm heads ran on the five nights after that.\n\nFollow-up\n\n- Fit the same heads on South Pier before the April tides, and repeat the six-bollard walk.\n",
-        "steps": [
-          {
-            "sections": [
-              7,
-              8,
-              9,
-              10
-            ],
-            "chars": 428,
-            "reason": "full"
-          }
-        ]
-      },
-      {
-        "sections": [
-          10,
-          11,
-          12
-        ],
-        "chars": 339,
-        "headings": [
-          "Harbour lighting trial",
-          "Follow-up"
-        ],
-        "text": "- Ask the night crew to log any lamp that flickers, with the pole number and the time.\n- Keep the painted marks as they are, so the next trial can compare like with like.\n\nContacts\n\nHarbour office, North Pier · lighting-trial@example.test · ask for the duty harbour master.\n\nLumen Works, trial desk · notes@example.test · weekday mornings.",
-        "steps": [
-          {
-            "sections": [
-              10,
-              11,
-              12
-            ],
-            "chars": 339,
+            "chars": 426,
             "reason": "full"
           }
         ]
@@ -244,189 +105,89 @@
         "sections": [
           0
         ],
-        "chars": 103,
+        "chars": 97,
         "headings": [
-          "Harbour lighting trial"
+          "Saturday bakery notes"
         ],
         "steps": [
           {
             "sections": [
               0
             ],
-            "chars": 79,
+            "chars": 74,
             "reason": "first"
           }
         ]
       },
       {
         "sections": [
-          1
+          1,
+          2
         ],
-        "chars": 341,
+        "chars": 306,
         "headings": [
-          "Harbour lighting trial",
-          "Overview"
+          "Saturday bakery notes",
+          "The bread"
         ],
         "steps": [
           {
             "sections": [
               1
             ],
-            "chars": 306,
+            "chars": 149,
             "reason": "new_heading"
-          }
-        ]
-      },
-      {
-        "sections": [
-          2
-        ],
-        "chars": 276,
-        "headings": [
-          "Harbour lighting trial",
-          "Kit"
-        ],
-        "steps": [
+          },
           {
             "sections": [
               2
             ],
-            "chars": 246,
-            "reason": "new_heading"
+            "chars": 120,
+            "reason": "same_heading"
           }
         ]
       },
       {
         "sections": [
-          3,
-          4
+          3
         ],
-        "chars": 683,
+        "chars": 181,
         "headings": [
-          "Harbour lighting trial",
-          "North Pier"
+          "Saturday bakery notes",
+          "The till"
         ],
         "steps": [
           {
             "sections": [
               3
             ],
-            "chars": 77,
+            "chars": 147,
             "reason": "new_heading"
-          },
+          }
+        ]
+      },
+      {
+        "sections": [
+          4,
+          5
+        ],
+        "chars": 337,
+        "headings": [
+          "Saturday bakery notes",
+          "Before you leave"
+        ],
+        "steps": [
           {
             "sections": [
               4
             ],
-            "chars": 567,
-            "reason": "same_heading"
-          }
-        ]
-      },
-      {
-        "sections": [
-          5,
-          6,
-          7
-        ],
-        "chars": 606,
-        "headings": [
-          "Harbour lighting trial",
-          "Readings"
-        ],
-        "steps": [
+            "chars": 183,
+            "reason": "new_heading"
+          },
           {
             "sections": [
               5
             ],
-            "chars": 18,
-            "reason": "new_heading"
-          },
-          {
-            "sections": [
-              6
-            ],
-            "chars": 59,
-            "reason": "same_heading"
-          },
-          {
-            "sections": [
-              7
-            ],
-            "chars": 490,
-            "reason": "same_heading"
-          }
-        ]
-      },
-      {
-        "sections": [
-          8,
-          9
-        ],
-        "chars": 245,
-        "headings": [
-          "Harbour lighting trial",
-          "Method"
-        ],
-        "steps": [
-          {
-            "sections": [
-              8
-            ],
-            "chars": 112,
-            "reason": "new_heading"
-          },
-          {
-            "sections": [
-              9
-            ],
-            "chars": 98,
-            "reason": "same_heading"
-          }
-        ]
-      },
-      {
-        "sections": [
-          10
-        ],
-        "chars": 298,
-        "headings": [
-          "Harbour lighting trial",
-          "Follow-up"
-        ],
-        "steps": [
-          {
-            "sections": [
-              10
-            ],
-            "chars": 262,
-            "reason": "new_heading"
-          }
-        ]
-      },
-      {
-        "sections": [
-          11,
-          12
-        ],
-        "chars": 192,
-        "headings": [
-          "Harbour lighting trial",
-          "Contacts"
-        ],
-        "steps": [
-          {
-            "sections": [
-              11
-            ],
-            "chars": 91,
-            "reason": "new_heading"
-          },
-          {
-            "sections": [
-              12
-            ],
-            "chars": 64,
+            "chars": 110,
             "reason": "same_heading"
           }
         ]
