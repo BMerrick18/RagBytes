@@ -57,91 +57,103 @@ export const DEMO_CV: { title: string; sections: DemoSection[] } = data;
 
 export const DEMO_TIERS: Record<string, DemoTier> = {
   basic: {
-    chunks: data.tiers.basic,
+    chunks: [
+      {
+        ...data.tiers.basic[0],
+        why: "The opening note, both bread paragraphs, and the first sentence of The till land in one chunk. The heading change does not start a new one.",
+      },
+      {
+        ...data.tiers.basic[1],
+        why: "The rest of the till sentence starts this chunk, which then runs on through the closing routine and the tax note.",
+      },
+    ],
     illustration: false,
     explanation:
-      "Basic joins the report into one stream and cuts it about every 500 characters, even across a heading. A sentence that would pass the limit moves into the next chunk. A sentence longer than 500 characters is split at the word boundary closest to 500. Keeping a heading and its text together is what Structured does.",
+      "Basic joins the note into one stream and cuts it about every 500 characters, even across a heading. The first chunk stops after “The card machine settles overnight.” The next sentence of The till is pushed into the following chunk, along with Before you leave. Keeping each heading whole is what Structured does.",
   },
   structured: {
-    chunks: data.tiers.structured,
+    chunks: [
+      {
+        ...data.tiers.structured[0],
+        why: "The opening note stays its own chunk because it sits under the title.",
+      },
+      {
+        ...data.tiers.structured[1],
+        why: "The bread starts a new chunk because the heading changed. The white loaves and the rye loaves stay together.",
+      },
+      {
+        ...data.tiers.structured[2],
+        why: "The till is one chunk again, so the sentence Basic split in half is whole.",
+      },
+      {
+        ...data.tiers.structured[3],
+        why: "Before you leave stays one chunk. The tax note is still glued to the closing routine, because they share a heading.",
+      },
+    ],
     illustration: false,
     explanation:
-      "Structured starts a new chunk at each heading and subheading, with no minimum length. Text under that heading stays together until it would pass about 2,000 characters. The one-line readings note stays with the readings, because it has the same heading. Follow-up is its own chunk even though it is short, and the heading is stored on the chunk.",
+      "Structured starts a new chunk at each heading. The till is whole again, and the two bread paragraphs stay together because they share a heading. Before you leave is also one chunk, so the council-tax note is still attached to locking up. Splitting that change of subject is what Semantic does.",
   },
   semantic: {
     illustration: true,
     explanation:
-      "Semantic embeds neighbouring passages and starts a new chunk where the meaning shifts. A chunk stays inside its heading. On the Readings heading, the date and the weather can stay together while the lux list starts a new chunk. Follow-up stays separate because it is the next heading.",
+      "Semantic keeps the heading rule, so The till stays separate and the two bread paragraphs stay together. Under Before you leave the subject changes: locking up is one chunk, and the council-tax note starts another. A chunk never crosses a heading.",
     chunks: [
       {
         sections: [0],
-        topic: "The title",
-        why: "The title is its own heading, so it is its own chunk.",
+        topic: "The handover",
+        why: "The opening note is its own heading, so it stays its own chunk.",
       },
       {
-        sections: [1],
-        topic: "The aim",
-        why: "Overview is the next heading. The comparison never crosses that line.",
+        sections: [1, 2],
+        topic: "The bread",
+        why: "The white loaves and the rye loaves are the same subject, so they stay together.",
       },
       {
-        sections: [2],
-        topic: "The kit",
-        why: "The kit list is one short list under its own heading, so it stays whole.",
+        sections: [3],
+        topic: "The till",
+        why: "The till is the next heading. The comparison does not cross that line.",
       },
       {
-        sections: [3, 4],
-        topic: "North Pier",
-        why: "Both passages sit under North Pier and describe the same stretch of the trial.",
+        sections: [4],
+        topic: "Locking up",
+        why: "This paragraph is about closing the shop.",
       },
       {
-        sections: [5, 6],
-        topic: "The night",
-        why: "The date and the weather are the same moment, so they stay together.",
-      },
-      {
-        sections: [7],
-        topic: "The measurements",
-        why: "The lux readings are a shift in subject under Readings, so they start a new chunk.",
-      },
-      {
-        sections: [8, 9],
-        topic: "The method",
-        why: "The walk and the sodium baseline are both how the trial was run.",
-      },
-      {
-        sections: [10],
-        topic: "Follow-up",
-        why: "Follow-up is a new heading, so it starts a new chunk even when the subject is close.",
-      },
-      {
-        sections: [11, 12],
-        topic: "Who to ask",
-        why: "The two contact lines share a heading and a subject.",
+        sections: [5],
+        topic: "The tax note",
+        why: "The council-tax note is a different subject under the same heading, so it starts a new chunk.",
       },
     ],
   },
   enriched: {
     illustration: true,
     explanation:
-      "Enriched will take well-shaped chunks and have a language model add a summary, keywords and document context to each, so a search for “quay lighting trial” finds the right chunk even when those exact words aren't in it.",
+      "Enriched will take these chunks and add a summary, keywords and document context, so a search for “household bill” finds the tax note even though those words are not in it.",
     chunks: [
       {
         sections: [0, 1, 2],
-        summary: "A one-week trial of warmer quay lighting on North Pier, using warm-white LED heads, a lux meter and the existing painted marks.",
-        keywords: ["quay lighting", "North Pier", "LED", "lux meter"],
-        why: "The summary puts the aim and the kit in one line, so it matches a question about either.",
+        summary: "Sunday opening notes for the bakery, including oven time and crust for the white and rye loaves.",
+        keywords: ["handover", "oven", "rye", "white loaves"],
+        why: "“Handover” is added as a keyword, although the note only says it was written for the person who opens on Sunday.",
       },
       {
-        sections: [3, 4],
-        summary: "On North Pier, crews could read bollard numbers from further away, with less glare on the water, though a shadow remains behind each bollard.",
-        keywords: ["bollards", "glare", "drizzle", "pier lighting"],
-        why: "“Pier lighting” is added as a keyword, although the text only describes lamps, glare and bollard numbers.",
+        sections: [3],
+        summary: "Count a fifty-pound float before the first customer and keep the notes in the blue tin.",
+        keywords: ["cash float", "card machine", "blue tin"],
+        why: "The summary names the job, counting the float, so a question about the morning cash finds this chunk.",
       },
       {
-        sections: [5, 6, 7, 8, 9, 10, 11, 12],
-        summary: "Readings from the night of 12 March, the walk used each night, follow-up work on South Pier, and two office contacts.",
-        keywords: ["12 March", "method", "South Pier", "contacts"],
-        why: "The summary pulls out what someone would search for: the date, the method and who to ask.",
+        sections: [4],
+        summary: "Closing routine: ovens off, counters wiped, door locked, alarm set, and the cash drawer left open.",
+        keywords: ["closing routine", "alarm", "cash drawer"],
+        why: "The summary turns the closing list into one line someone can search for.",
+      },
+      {
+        sections: [5],
+        summary: "The flat upstairs has a council-tax payment due on Monday, paid from the personal account.",
+        keywords: ["household bill", "council tax", "personal account"],
+        why: "“Household bill” is added as a keyword, although the paragraph never uses those words.",
       },
     ],
   },
