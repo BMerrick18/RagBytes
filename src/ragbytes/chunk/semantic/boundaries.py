@@ -3,11 +3,16 @@
 import statistics
 
 from ragbytes.chunk.semantic.embed_prep import PreparedSentence
+from ragbytes.chunk.semantic.styles import BALANCED, Style
 
-# One join has no neighbours to compare with, so it uses a fixed floor.
-# Several joins cut where a score falls well below the middle of that group.
-_SINGLE_JOIN_FLOOR = 0.5
-_OUTLIER_DROP = 0.15
+# With several joins, a dip also cuts when it falls this far, or one standard
+# deviation if that is more, below the middle score of the run.
+_MIN_DROP = 0.05
+# Each side of a join is the mean of up to this many passages, so one short
+# passage does not decide a boundary on its own.
+_WINDOW = 2
+_SENTENCE_ENDS = (".", "!", "?")
+_FRAGMENT_KINDS = frozenset({"text", "list"})
 
 
 def cosine(left: list[float], right: list[float]) -> float:
@@ -30,7 +35,14 @@ def cosine(left: list[float], right: list[float]) -> float:
     return dot / ((left_norm**0.5) * (right_norm**0.5))
 
 
-def first_pass_cuts(passages: list[PreparedSentence], vectors: list[list[float]]) -> dict[int, list[int]]:
+def neighbour_scores(vectors: list[list[float]]) -> list[float]:
+    """Return the score between each passage and the one after it."""
+    return [cosine(vectors[index - 1], vectors[index]) for index in range(1, len(vectors))]
+
+
+def first_pass_cuts(
+    passages: list[PreparedSentence], vectors: list[list[float]], style: Style = BALANCED
+) -> dict[int, list[int]]:
     """Return where each long block splits, as indexes inside that group.
 
     Passages that share a ``group`` are one paragraph or one list. A cut index
@@ -42,36 +54,207 @@ def first_pass_cuts(passages: list[PreparedSentence], vectors: list[list[float]]
     cuts: dict[int, list[int]] = {}
     for group_id, indexes in _groups(passages):
         group_vectors = [vectors[index] for index in indexes]
-        found = cut_indexes(group_vectors)
+        found = cut_indexes(group_vectors, [len(passages[index].text) for index in indexes], style)
         if found:
             cuts[group_id] = found
     return cuts
 
 
-def second_pass_cuts(vectors: list[list[float]]) -> list[int]:
-    """Return the indexes, inside one heading, where a new chunk starts."""
-    return cut_indexes(vectors)
+def second_pass_cuts(
+    vectors: list[list[float]], lengths: list[int] | None = None, style: Style = BALANCED
+) -> list[int]:
+    """Return the indexes, inside one heading or joined group of headings, where a new chunk starts."""
+    return cut_indexes(vectors, lengths, style)
 
 
-def cut_indexes(vectors: list[list[float]]) -> list[int]:
+def join_scores(vectors: list[list[float]]) -> list[float]:
+    """Return one score per join: the passages just before it against those just after.
+
+    Score ``j`` sits between passage ``j`` and passage ``j + 1``. Where both
+    sides have room, each side is the mean of two passages and the sides never
+    share one. Next to either end of the run, the two passages are compared
+    alone, because a side with fewer passages scores lower on its own.
+    """
+    scores: list[float] = []
+    for join in range(1, len(vectors)):
+        width = _WINDOW if _is_wide(join, len(vectors)) else 1
+        left = _mean(vectors[join - width : join])
+        right = _mean(vectors[join : join + width])
+        scores.append(cosine(left, right))
+    return scores
+
+
+def cut_indexes(
+    vectors: list[list[float]], lengths: list[int] | None = None, style: Style = BALANCED
+) -> list[int]:
     """Return the indexes at which a new run should start.
 
-    The score between two neighbours is their cosine similarity. A lone join
-    splits when that score is below 0.5. With more joins, a score also splits
-    when it falls more than 0.15 below the middle score of the same run. The
-    first passage is never listed: a run always starts at 0.
+    A lone join splits when its score is below the style's floor. With more
+    joins, a score also splits when it sits well below the middle score of
+    joins of the same shape, and a windowed join must also be a dip, lower
+    than the joins on either side. With ``lengths``, a run longer than the
+    style's maximum is split again at its weakest join, the split needing the
+    fewest pieces and then the most even one winning a tie, and a run under the style's minimum joins the neighbour it
+    is closer to, unless that neighbour is below the floor or the joined run
+    would be too long. The first passage is never listed: a run always starts
+    at 0.
     """
     if len(vectors) < 2:
         return []
-    scores = [cosine(vectors[index - 1], vectors[index]) for index in range(1, len(vectors))]
+    scores = join_scores(vectors)
+    cuts = _topic_cuts(vectors, scores, style.floor)
+    if lengths is None:
+        return cuts
+    if len(lengths) != len(vectors):
+        raise RuntimeError(f"Cannot size {len(vectors)} passages from {len(lengths)} lengths.")
+    starts = _split_long(sorted({0, *cuts}), scores, lengths, style)
+    return [start for start in _merge_short(starts, scores, lengths, style) if start]
+
+
+def attach_fragments(passages: list[PreparedSentence], cuts: list[int], style: Style = BALANCED) -> list[int]:
+    """Join each run that is only a short label, date, or code to a neighbour.
+
+    A fragment is text under the style's fragment size that does not end like
+    a sentence, such as ``September 2026`` or ``ISBN: 978-1-4731-3145-3``. It
+    says little on its own, so it joins the run after it, which it usually
+    introduces, or the run before it at the end. Similarity is not checked.
+    Tables, code, and figures are never fragments.
+    """
+    starts = sorted({0, *(cut for cut in cuts if 0 < cut < len(passages))})
+    while len(starts) > 1:
+        bounds = [*starts, len(passages)]
+        found = next(
+            (
+                (begin, end)
+                for begin, end in zip(bounds, bounds[1:])
+                if _is_fragment(passages[begin:end], style)
+            ),
+            None,
+        )
+        if found is None:
+            break
+        begin, end = found
+        starts.remove(end if end < len(passages) else begin)
+    return [start for start in starts if start]
+
+
+def _is_fragment(part: list[PreparedSentence], style: Style) -> bool:
+    if any(passage.kind not in _FRAGMENT_KINDS for passage in part):
+        return False
+    text = "\n\n".join(passage.text for passage in part).strip()
+    return len(text) < style.fragment_chars and not text.endswith(_SENTENCE_ENDS)
+
+
+def _topic_cuts(vectors: list[list[float]], scores: list[float], floor: float) -> list[int]:
+    """Cut below the floor, or where a score sits well below others of the same shape.
+
+    Windowed scores run higher than scores between two lone passages, so each
+    kind is measured against its own kind: a wide join against the other wide
+    joins, and an end join against every neighbour pair in the run.
+    """
     if len(scores) == 1:
-        return [1] if scores[0] < _SINGLE_JOIN_FLOOR else []
-    middle = statistics.median(scores)
-    return [
-        index + 1
-        for index, score in enumerate(scores)
-        if score < _SINGLE_JOIN_FLOOR or score < middle - _OUTLIER_DROP
-    ]
+        return [1] if scores[0] < floor else []
+    pairs = neighbour_scores(vectors)
+    wide = [_is_wide(join + 1, len(vectors)) for join in range(len(scores))]
+    wide_scores = [score for score, is_wide in zip(scores, wide, strict=True) if is_wide]
+    wide_bar = _bar(wide_scores) if len(wide_scores) >= 2 else None
+    pair_bar = _bar(pairs)
+    cuts: list[int] = []
+    for join, score in enumerate(scores):
+        if score < floor:
+            cuts.append(join + 1)
+        elif wide[join] and wide_bar is not None:
+            if score < wide_bar and _is_dip(scores, wide, join):
+                cuts.append(join + 1)
+        elif pairs[join] < pair_bar:
+            cuts.append(join + 1)
+    return cuts
+
+
+def _bar(scores: list[float]) -> float:
+    return statistics.median(scores) - max(_MIN_DROP, statistics.pstdev(scores))
+
+
+def _is_wide(join: int, count: int) -> bool:
+    """Both sides of the join before passage ``join`` have room for a full window."""
+    return join >= _WINDOW and count - join >= _WINDOW
+
+
+def _is_dip(scores: list[float], wide: list[bool], join: int) -> bool:
+    """A score below the wide join before it and no higher than the wide join after it."""
+    if join > 0 and wide[join - 1] and scores[join] >= scores[join - 1]:
+        return False
+    return not (join + 1 < len(scores) and wide[join + 1] and scores[join] > scores[join + 1])
+
+
+def _split_long(starts: list[int], scores: list[float], lengths: list[int], style: Style) -> list[int]:
+    """Cut each run over the limit at its weakest join until every run fits."""
+    while True:
+        bounds = [*starts, len(lengths)]
+        for begin, end in zip(bounds, bounds[1:]):
+            if end - begin < 2 or _size(lengths, begin, end) <= style.max_chars:
+                continue
+            joins = range(begin, end - 1)
+            roomy = [
+                join
+                for join in joins
+                if _size(lengths, begin, join + 1) >= style.min_chars
+                and _size(lengths, join + 1, end) >= style.min_chars
+            ]
+            weakest = min(
+                roomy or joins,
+                key=lambda join: (
+                    scores[join],
+                    _pieces(_size(lengths, begin, join + 1), style) + _pieces(_size(lengths, join + 1, end), style),
+                    abs(_size(lengths, begin, join + 1) - _size(lengths, join + 1, end)),
+                ),
+            )
+            starts = sorted({*starts, weakest + 1})
+            break
+        else:
+            return starts
+
+
+def _merge_short(starts: list[int], scores: list[float], lengths: list[int], style: Style) -> list[int]:
+    """Join a short run to its closer neighbour, best match first, while the result fits."""
+    starts = list(starts)
+    while True:
+        bounds = [*starts, len(lengths)]
+        best: tuple[float, int] | None = None
+        for position, (begin, end) in enumerate(zip(bounds, bounds[1:])):
+            if _size(lengths, begin, end) >= style.min_chars:
+                continue
+            options: list[tuple[float, int, int]] = []
+            if position > 0:
+                options.append((scores[begin - 1], begin, _size(lengths, bounds[position - 1], end)))
+            if end < len(lengths):
+                options.append((scores[end - 1], end, _size(lengths, begin, bounds[position + 2])))
+            for score, start, merged in options:
+                if score >= style.floor and merged <= style.max_chars and (best is None or score > best[0]):
+                    best = (score, start)
+        if best is None:
+            return starts
+        starts.remove(best[1])
+
+
+def _pieces(size: int, style: Style) -> int:
+    """How many runs a span this size needs to fit the maximum."""
+    return -(-size // style.max_chars)
+
+
+def _size(lengths: list[int], begin: int, end: int) -> int:
+    """Characters in passages ``begin`` to ``end``, joined by a blank line."""
+    return sum(lengths[begin:end]) + 2 * max(0, end - begin - 1)
+
+
+def _mean(vectors: list[list[float]]) -> list[float]:
+    """Average unit-length copies, so a longer vector does not outweigh the rest."""
+    total = [0.0] * len(vectors[0])
+    for vector in vectors:
+        norm = sum(value * value for value in vector) ** 0.5 or 1.0
+        for index, value in enumerate(vector):
+            total[index] += value / norm
+    return total
 
 
 def _groups(passages: list[PreparedSentence]) -> list[tuple[int, list[int]]]:

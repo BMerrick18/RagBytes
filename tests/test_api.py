@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
+from ragbytes.chunk.registry import CHUNKERS
 from ragbytes.config import settings
 from ragbytes.main import app
 
@@ -198,6 +199,46 @@ def test_semantic_uses_the_server_key_and_returns_chunks(monkeypatch):
     assert "sk-server" not in response.text
     body = response.json()
     assert [chunk["content"] for chunk in body["chunks"]] == ["Warm the lamp.", "The tariff changed the quay."]
+
+
+def test_semantic_reports_the_default_options(monkeypatch):
+    monkeypatch.setattr(settings, "openai_api_key", SecretStr("sk-server"))
+    monkeypatch.setattr("ragbytes.chunk.semantic.hosted.OpenAIEmbedder", _FakeEmbedder)
+    response = TestClient(app).post(
+        "/v1/chunk/semantic",
+        files={"file": ("notes.txt", b"Warm the lamp.\n\nRead the meter.\n", "text/plain")},
+    )
+    assert response.status_code == 200
+    assert response.json()["options"] == {"style": "balanced", "strict_headings": False, "max_chunk_chars": 2000}
+
+
+def test_semantic_accepts_a_style_and_overrides(monkeypatch):
+    seen: dict[str, object] = {}
+
+    def _capture(sections, *, filename, style):
+        seen["style"] = style
+        return []
+
+    monkeypatch.setattr(settings, "openai_api_key", SecretStr("sk-server"))
+    monkeypatch.setitem(CHUNKERS, "semantic", _capture)
+    response = TestClient(app).post(
+        "/v1/chunk/semantic",
+        files={"file": ("notes.txt", b"Warm the lamp.\n", "text/plain")},
+        data={"style": "precise", "strict_headings": "true", "max_chunk_chars": "900"},
+    )
+    assert response.status_code == 200
+    assert response.json()["options"] == {"style": "precise", "strict_headings": True, "max_chunk_chars": 900}
+    assert seen["style"].merge_headings is False
+    assert seen["style"].max_chars == 900
+
+
+def test_semantic_rejects_an_unknown_style_or_size(monkeypatch):
+    monkeypatch.setattr(settings, "openai_api_key", SecretStr("sk-server"))
+    client = TestClient(app)
+    file = {"file": ("notes.txt", b"Warm the lamp.\n", "text/plain")}
+
+    assert client.post("/v1/chunk/semantic", files=file, data={"style": "aggressive"}).status_code == 422
+    assert client.post("/v1/chunk/semantic", files=file, data={"max_chunk_chars": "100"}).status_code == 422
 
 
 def test_a_failed_embedding_does_not_reveal_the_key(monkeypatch):

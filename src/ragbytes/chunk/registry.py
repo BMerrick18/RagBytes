@@ -30,8 +30,11 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "semantic": (
         "Embeds neighbouring passages and starts a new chunk where the meaning shifts. A chunk stays "
-        "inside one heading. Passage text is sent to OpenAI for those embeddings and then discarded. "
-        "The upload is a file only."
+        "inside one heading, except that very short neighbouring headings can share a chunk under "
+        "their parent heading. Choose a style: precise for small focused chunks, balanced for general "
+        "search, or broad for larger chunks with more context. strict_headings keeps every heading "
+        "apart, and max_chunk_chars caps the chunk size. Passage text is sent to OpenAI for those "
+        "embeddings and then discarded."
     ),
 }
 

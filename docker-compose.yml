@@ -17,6 +17,7 @@ services:
       WEB_CONCURRENCY: ${API_WORKERS:-2}
       # Server key for semantic chunking. The browser never sends a key. Leave empty to disable the tier.
       RAGBYTES_OPENAI_API_KEY: ${RAGBYTES_OPENAI_API_KEY:-}
+      RAGBYTES_SEMANTIC_MODEL: ${RAGBYTES_SEMANTIC_MODEL:-text-embedding-3-small}
     volumes:
       # Running totals of documents and chunks for GET /v1/stats; no document content.
       - stats:/app/data

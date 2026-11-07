@@ -16,9 +16,18 @@ pip install -e ".[dev]"
 uvicorn ragbytes.main:app --reload
 ```
 
-Semantic chunking needs `RAGBYTES_OPENAI_API_KEY` in the environment. The key stays on the server.
-The request is a file only. Passage text is sent to OpenAI and discarded with the file. Without the
+Semantic chunking needs `RAGBYTES_OPENAI_API_KEY` in the environment. The key stays on the server. `RAGBYTES_SEMANTIC_MODEL` picks the embedding model and defaults to `text-embedding-3-small`.
+The request never carries a key. Passage text is sent to OpenAI and discarded with the file. Without the
 key, that endpoint returns 503 and the other tiers keep working.
+
+The semantic endpoint takes three optional form fields next to `file`:
+
+- `style`: `precise` (chunks up to about 1,200 characters, cut readily), `balanced` (the default, up to
+  about 2,000), or `broad` (up to about 3,000, cut only at clear changes of subject).
+- `strict_headings`: `true` stops very short neighbouring headings from sharing a chunk.
+- `max_chunk_chars`: a size cap from 500 to 8,000 characters, replacing the style's own.
+
+The response repeats the settings used under `options`.
 
 Each chunking tier has its own endpoint taking a `file` upload: `POST /v1/chunk/basic`,
 `POST /v1/chunk/structured`, and `POST /v1/chunk/semantic`. `GET /v1/methods` lists the tiers, their endpoints and the file types,

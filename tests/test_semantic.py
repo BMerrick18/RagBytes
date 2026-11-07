@@ -1,4 +1,5 @@
 from ragbytes.chunk.semantic.semantic import chunk_semantic
+from ragbytes.chunk.semantic.styles import resolve_style
 from ragbytes.schemas import Section
 
 
@@ -63,7 +64,27 @@ def test_a_drop_in_similarity_starts_a_new_chunk_under_the_same_heading():
     assert {chunk.metadata.subheading for chunk in chunks} == {"Setup"}
 
 
-def test_a_heading_change_is_a_boundary_before_any_comparison():
+_LONG = "Run the installer and wait for it to finish before you continue. " * 4
+
+
+def test_a_heading_change_between_larger_headings_is_a_boundary_before_any_comparison():
+    embedder = _Embedder()
+    sections = [
+        _section(0, "text", _LONG.strip(), ["Guide", "Install"]),
+        _section(1, "text", _LONG.strip(), ["Guide", "Configure"]),
+    ]
+
+    chunks = chunk_semantic(sections, filename="guide.txt", embedder=embedder)
+
+    assert [chunk.content for chunk in chunks] == [_LONG.strip(), _LONG.strip()]
+    assert [(chunk.metadata.heading, chunk.metadata.subheading) for chunk in chunks] == [
+        ("Guide", "Install"),
+        ("Guide", "Configure"),
+    ]
+    assert embedder.batches == []
+
+
+def test_small_sibling_headings_share_a_chunk_under_their_parent():
     embedder = _Embedder()
     sections = [
         _section(0, "text", "Run the installer.", ["Guide", "Install"]),
@@ -72,12 +93,98 @@ def test_a_heading_change_is_a_boundary_before_any_comparison():
 
     chunks = chunk_semantic(sections, filename="guide.txt", embedder=embedder)
 
+    assert [chunk.content for chunk in chunks] == ["Install\nRun the installer.\n\nConfigure\nEdit the file."]
+    assert chunks[0].metadata.headings == ["Guide"]
+    assert (chunks[0].metadata.heading, chunks[0].metadata.subheading) == ("Guide", None)
+    assert chunks[0].embed_text == "Guide\n\nInstall\nRun the installer.\n\nConfigure\nEdit the file."
+    assert embedder.batches == [["Run the installer.", "Edit the file."]]
+
+
+def test_unrelated_small_siblings_keep_their_own_headings():
+    embedder = _Embedder()
+    sections = [
+        _section(0, "text", "Run the installer.", ["Guide", "Install"]),
+        _section(1, "text", "The tariff changed the quay.", ["Guide", "Harbour"]),
+    ]
+
+    chunks = chunk_semantic(sections, filename="guide.txt", embedder=embedder)
+
+    assert [chunk.content for chunk in chunks] == ["Run the installer.", "The tariff changed the quay."]
+    assert [chunk.metadata.headings for chunk in chunks] == [["Guide", "Install"], ["Guide", "Harbour"]]
+
+
+def test_strict_headings_keep_small_siblings_apart():
+    embedder = _Embedder()
+    sections = [
+        _section(0, "text", "Run the installer.", ["Guide", "Install"]),
+        _section(1, "text", "Edit the file.", ["Guide", "Configure"]),
+    ]
+
+    chunks = chunk_semantic(
+        sections, filename="guide.txt", embedder=embedder, style=resolve_style(strict_headings=True)
+    )
+
     assert [chunk.content for chunk in chunks] == ["Run the installer.", "Edit the file."]
-    assert [(chunk.metadata.heading, chunk.metadata.subheading) for chunk in chunks] == [
-        ("Guide", "Install"),
-        ("Guide", "Configure"),
+    assert [chunk.metadata.headings for chunk in chunks] == [["Guide", "Install"], ["Guide", "Configure"]]
+    assert embedder.batches == []
+
+
+def test_a_lone_label_joins_the_text_it_introduces_despite_a_low_score():
+    embedder = _Embedder()
+    sections = [
+        _section(0, "text", "Tariff notes", ["Guide", "Harbour"]),
+        _section(1, "text", "Run the installer before the crew arrives.", ["Guide", "Harbour"]),
+    ]
+
+    chunks = chunk_semantic(sections, filename="guide.txt", embedder=embedder)
+
+    assert [chunk.content for chunk in chunks] == ["Tariff notes\n\nRun the installer before the crew arrives."]
+
+
+def test_a_small_heading_does_not_join_a_cousin():
+    embedder = _Embedder()
+    sections = [
+        _section(0, "text", "Run the installer.", ["Guide", "Setup", "Install"]),
+        _section(1, "text", "Edit the file.", ["Guide", "Tuning", "Configure"]),
+    ]
+
+    chunks = chunk_semantic(sections, filename="guide.txt", embedder=embedder)
+
+    assert [chunk.metadata.headings for chunk in chunks] == [
+        ["Guide", "Setup", "Install"],
+        ["Guide", "Tuning", "Configure"],
     ]
     assert embedder.batches == []
+
+
+def test_a_parents_opening_text_joins_its_small_first_child():
+    embedder = _Embedder()
+    sections = [
+        _section(0, "text", "These steps prepare the host.", ["Guide", "Setup"]),
+        _section(1, "text", "Run the installer.", ["Guide", "Setup", "Install"]),
+    ]
+
+    chunks = chunk_semantic(sections, filename="guide.txt", embedder=embedder)
+
+    assert [chunk.content for chunk in chunks] == ["These steps prepare the host.\n\nInstall\nRun the installer."]
+    assert chunks[0].metadata.headings == ["Guide", "Setup"]
+
+
+def test_a_parents_opening_text_waits_for_its_child_rather_than_joining_the_heading_before():
+    embedder = _Embedder()
+    sections = [
+        _section(0, "text", "Measure the room.", ["Guide", "Survey"]),
+        _section(1, "text", "These steps prepare the host.", ["Guide", "Setup"]),
+        _section(2, "text", "Run the installer.", ["Guide", "Setup", "Install"]),
+    ]
+
+    chunks = chunk_semantic(sections, filename="guide.txt", embedder=embedder)
+
+    assert [chunk.content for chunk in chunks] == [
+        "Measure the room.",
+        "These steps prepare the host.\n\nInstall\nRun the installer.",
+    ]
+    assert [chunk.metadata.headings for chunk in chunks] == [["Guide", "Survey"], ["Guide", "Setup"]]
 
 
 def test_a_long_paragraph_is_split_where_its_sentences_change_subject():
@@ -144,11 +251,10 @@ def test_short_passages_from_every_heading_share_one_embedding_call():
         ]
     ]
     assert [chunk.content for chunk in chunks] == [
-        "Warm the lamp.\n\nRead the meter.",
-        "Open the gate.",
+        "Setup\nWarm the lamp.\n\nRead the meter.\n\nRoute\nOpen the gate.",
         "The tariff changed the quay.",
     ]
-    assert [chunk.metadata.subheading for chunk in chunks] == ["Setup", "Route", "Route"]
+    assert [chunk.metadata.headings for chunk in chunks] == [["Guide"], ["Guide", "Route"]]
 
 
 def test_an_image_keeps_its_bytes_when_it_is_its_own_chunk():
