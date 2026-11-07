@@ -323,6 +323,27 @@ def test_a_lead_in_stays_with_a_small_list():
     assert sentences[0].embed_text == f"Guide > Kit\n\n{data}"
 
 
+def test_list_runs_are_compared_without_their_repeated_lead_in():
+    items = [f"- Step {index:02d} checks the housing." for index in range(9)]
+    data = "Bring the kit:\n" + "\n".join(items)
+    scope = _scope([_section(0, "list", data, ["Guide"])])
+
+    assert [passage.vector_text for passage in scope.to_embed] == [
+        "\n".join(items[:5]),
+        "\n".join(items[5:]),
+    ]
+    rejoined = whole_after_first_pass(scope)
+    assert rejoined[0].text == data
+    assert rejoined[0].vector_text == "\n".join(items)
+
+
+def test_a_small_list_is_compared_with_its_lead_in():
+    data = "Bring the kit:\n- Gloves\n- Torch"
+    scope = _scope([_section(0, "list", data, ["Guide"])])
+
+    assert [passage.vector_text for passage in scope.whole] == [data]
+
+
 def test_a_long_list_is_cut_between_items_into_even_runs():
     items = [f"- Step {index:02d} checks the housing." for index in range(9)]
     data = "Bring the kit:\n" + "\n".join(items)

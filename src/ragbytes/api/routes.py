@@ -1,3 +1,4 @@
+from functools import partial
 from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
@@ -9,10 +10,19 @@ from pydantic import BaseModel, Field
 from ragbytes import stats
 from ragbytes.chunk.registry import CHUNKERS, DESCRIPTIONS, Chunker
 from ragbytes.chunk.semantic.hosted import SemanticEmbedError, SemanticNotConfigured
+from ragbytes.chunk.semantic.styles import StyleName, resolve_style
 from ragbytes.config import settings
 from ragbytes.extract.complex import prepare_for_chunking
 from ragbytes.extract.registry import EXTRACTORS, Extractor, get_extractor
-from ragbytes.schemas import ChunkingMethod, ChunkResponse, ErrorResponse, MethodsResponse, StatsResponse
+from ragbytes.schemas import (
+    ChunkingMethod,
+    ChunkResponse,
+    ErrorResponse,
+    MethodsResponse,
+    SemanticChunkResponse,
+    SemanticOptions,
+    StatsResponse,
+)
 
 router = APIRouter()
 
@@ -23,6 +33,29 @@ class ChunkUpload(BaseModel):
 
 
 Upload = Annotated[ChunkUpload, File()]
+
+
+class SemanticChunkUpload(ChunkUpload):
+    style: StyleName = Field(
+        default="balanced",
+        description=(
+            "precise makes small, tightly focused chunks for question answering. balanced suits general "
+            "search. broad makes larger chunks that keep more context, for long-context models."
+        ),
+    )
+    strict_headings: bool = Field(
+        default=False,
+        description="Never let a chunk span two headings, even when both are very short.",
+    )
+    max_chunk_chars: int | None = Field(
+        default=None,
+        ge=500,
+        le=8000,
+        description="The largest a chunk may grow, in characters. Defaults to the style's own limit.",
+    )
+
+
+SemanticUpload = Annotated[SemanticChunkUpload, File()]
 
 ERRORS: dict[int | str, dict] = {
     400: {"model": ErrorResponse, "description": "The file could not be read."},
@@ -80,15 +113,26 @@ async def chunk_structured(upload: Upload) -> ChunkResponse:
         503: {"model": ErrorResponse, "description": "Semantic chunking is not configured."},
     },
 )
-async def chunk_semantic(upload: Upload) -> ChunkResponse:
+async def chunk_semantic(upload: SemanticUpload) -> SemanticChunkResponse:
     if not settings.openai_api_key.get_secret_value().strip():
         raise HTTPException(status_code=503, detail="Semantic chunking is unavailable.")
+    style = resolve_style(upload.style, strict_headings=upload.strict_headings, max_chars=upload.max_chunk_chars)
     try:
-        return await _chunk(upload.file, CHUNKERS["semantic"])
+        response = await _chunk(upload.file, partial(CHUNKERS["semantic"], style=style))
     except SemanticNotConfigured as exc:
         raise HTTPException(status_code=503, detail="Semantic chunking is unavailable.") from exc
     except SemanticEmbedError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return SemanticChunkResponse(
+        filename=response.filename,
+        file_id=response.file_id,
+        chunks=response.chunks,
+        options=SemanticOptions(
+            style=style.name,
+            strict_headings=not style.merge_headings,
+            max_chunk_chars=style.max_chars,
+        ),
+    )
 
 
 async def _chunk(file: UploadFile, chunker: Chunker) -> ChunkResponse:

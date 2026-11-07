@@ -2,6 +2,7 @@
 
 from ragbytes.chunk.assemble import sections_for_chunking
 from ragbytes.chunk.semantic.embed_prep import HeadingPassages, PreparedSentence, _LIST_ITEM, _embed_text
+from ragbytes.chunk.semantic.siblings import Umbrella
 from ragbytes.schemas import Chunk, Section, SectionKind
 
 _MEDIA_KINDS = frozenset({"image", "chart", "complex"})
@@ -31,12 +32,16 @@ def chunk_sections(
     originals: dict[str, Section],
     *,
     start_index: int,
+    umbrella: Umbrella | None = None,
 ) -> list[Section]:
     """Join passages between ``cuts`` into sections the response can carry.
 
     ``cuts`` are indexes in ``passages`` where a new chunk starts. A run that
     is one image, chart, or complex region keeps that region's bytes. A run of
-    several passages joins their text with a blank line.
+    several passages joins their text with a blank line. A run whose passages
+    come from more than one heading takes the ``umbrella`` path they share,
+    and each heading's own titles below that path are written on the line
+    above its first passage.
     """
     if not passages:
         return []
@@ -46,6 +51,9 @@ def chunk_sections(
     for begin, end in zip(starts, starts[1:]):
         part = passages[begin:end]
         if not part:
+            continue
+        if umbrella is not None and _mixed(part):
+            sections.append(_shared_section(part, umbrella, start_index + len(sections)))
             continue
         sections.append(_section(part, originals, start_index + len(sections)))
     return sections
@@ -95,7 +103,14 @@ def _joined(part: list[PreparedSentence]) -> PreparedSentence:
         kind=first.kind,
         order=first.order,
         group=None,
+        compare_text=_join_compare(part),
     )
+
+
+def _join_compare(part: list[PreparedSentence]) -> str | None:
+    if all(passage.compare_text is None for passage in part):
+        return None
+    return "\n".join(passage.vector_text for passage in part)
 
 
 def _join_group(part: list[PreparedSentence]) -> str:
@@ -150,6 +165,32 @@ def _section(part: list[PreparedSentence], originals: dict[str, Section], index:
         subheading=first.subheading,
         page=first.page,
         data=_join_chunk(part),
+    )
+
+
+def _mixed(part: list[PreparedSentence]) -> bool:
+    return any(passage.headings != part[0].headings for passage in part[1:])
+
+
+def _shared_section(part: list[PreparedSentence], umbrella: Umbrella, index: int) -> Section:
+    first = part[0]
+    kinds = {passage.kind for passage in part}
+    kind: SectionKind = kinds.pop() if len(kinds) == 1 else "text"
+    texts: list[str] = []
+    previous: list[str] | None = None
+    for passage in part:
+        titles = passage.headings[len(umbrella.headings) :] if passage.headings != previous else []
+        texts.append("\n".join([*titles, passage.text]))
+        previous = passage.headings
+    return Section(
+        file_id=first.file_id,
+        index=index,
+        kind=kind,
+        headings=list(umbrella.headings),
+        heading=umbrella.heading,
+        subheading=umbrella.subheading,
+        page=first.page,
+        data="\n\n".join(texts),
     )
 
 

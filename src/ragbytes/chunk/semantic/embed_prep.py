@@ -80,14 +80,20 @@ class PreparedSentence:
 
     ``text`` is a small paragraph, a sentence from a very long paragraph, or a
     block such as a list or a table. ``embed_text`` is the heading path, a
-    blank line, then ``text``. A document with no headings uses ``text``
-    alone. ``heading`` and ``subheading`` are the titles from the source
-    section, copied unchanged.
+    blank line, then ``text``, as the finished chunk will carry it. A document
+    with no headings uses ``text`` alone. Neither pass embeds ``embed_text``:
+    every passage under one heading shares the path, so it would only pull the
+    scores together. ``heading`` and ``subheading`` are the titles from the
+    source section, copied unchanged.
 
     ``order`` is this passage's place in the file, counting from 0. ``group``
     is set when this passage was split from a long block. Passages that share
     a group are embedded in the first pass to decide where that block is cut.
     A passage that is already one section has no group.
+
+    ``compare_text`` is what the passes embed when it differs from ``text``.
+    A run of a long list carries the list's lead-in so the chunk reads well,
+    but the lead-in is left out here so every run does not look alike.
     """
 
     text: str
@@ -102,6 +108,12 @@ class PreparedSentence:
     kind: SectionKind
     order: int
     group: int | None
+    compare_text: str | None = None
+
+    @property
+    def vector_text(self) -> str:
+        """The text both embedding passes send for this passage."""
+        return self.compare_text if self.compare_text is not None else self.text
 
 
 @dataclass
@@ -142,8 +154,8 @@ def prepare_sentences(sections: list[Section]) -> list[HeadingPassages]:
     ``to_embed``. A nested entry stays with its parent. A table, a block of
     code, an image, a chart, and a complex region stay in ``whole``.
 
-    Every piece keeps the heading path of the section it came from. The same
-    sentence under two titles therefore embeds as two different strings.
+    Every piece keeps the heading path of the section it came from, for the
+    finished chunk. The passes compare passage text without that path.
     """
     scopes: list[HeadingPassages] = []
     order = 0
@@ -154,8 +166,10 @@ def prepare_sentences(sections: list[Section]) -> list[HeadingPassages]:
             scope = _scope_for(scopes, section)
             split = block.split and len(block.texts) > 1
             group_id = _next_group(scope) if split else None
-            for text in block.texts:
+            compares = block.compare or [None] * len(block.texts)
+            for text, compare in zip(block.texts, compares, strict=True):
                 passage = _from_section(section, text, order, group_id)
+                passage.compare_text = compare if split else None
                 order += 1
                 if split:
                     scope.to_embed.append(passage)
@@ -220,10 +234,15 @@ def _embed_text(headings: list[str], text: str) -> str:
 
 @dataclass
 class _Block:
-    """Texts from one paragraph or list. ``split`` means the block was cut for length."""
+    """Texts from one paragraph or list. ``split`` means the block was cut for length.
+
+    ``compare`` matches ``texts`` one for one when a piece should be embedded
+    as different text, such as a list run without its repeated lead-in.
+    """
 
     texts: list[str]
     split: bool
+    compare: list[str | None] | None = None
 
 
 def _blocks(section: Section) -> list[_Block]:
@@ -279,7 +298,13 @@ def _list_blocks(data: str) -> list[_Block]:
     for size in _even_sizes(len(items), -(-len(items) // _SMALL_LIST_ITEMS)):
         pieces.extend(_pack_list(lead, items[cursor : cursor + size]))
         cursor += size
-    return [_Block(pieces, split=len(pieces) > 1)]
+    compare = [_without_lead(lead, piece) for piece in pieces] if lead else None
+    return [_Block(pieces, split=len(pieces) > 1, compare=compare)]
+
+
+def _without_lead(lead: list[str], piece: str) -> str:
+    """Return a list run's items, without the lead-in lines written above them."""
+    return "\n".join(piece.split("\n")[len(lead) :])
 
 
 def _parse_list(text: str) -> tuple[list[str], list[_ListItem]]:

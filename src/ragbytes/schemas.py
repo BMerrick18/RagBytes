@@ -111,6 +111,18 @@ class ChunkResponse(BaseModel):
     chunks: list[Chunk]
 
 
+class SemanticOptions(BaseModel):
+    """The settings a semantic response was cut with, so the same result can be asked for again."""
+
+    style: Literal["precise", "balanced", "broad"]
+    strict_headings: bool
+    max_chunk_chars: int = Field(description="The largest a chunk was allowed to grow, in characters.")
+
+
+class SemanticChunkResponse(ChunkResponse):
+    options: SemanticOptions
+
+
 class ChunkingMethod(BaseModel):
     name: str = Field(description="Tier name.")
     path: str = Field(description="Endpoint to POST a file to for this tier.")

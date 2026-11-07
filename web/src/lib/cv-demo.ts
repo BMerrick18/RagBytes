@@ -97,7 +97,7 @@ export const DEMO_TIERS: Record<string, DemoTier> = {
   semantic: {
     illustration: true,
     explanation:
-      "Semantic keeps the heading rule, so The till stays separate and the two bread paragraphs stay together. Under Before you leave the subject changes: locking up is one chunk, and the council-tax note starts another. A chunk never crosses a heading.",
+      "Semantic keeps the heading rule, so The till stays separate and the two bread paragraphs stay together. Under Before you leave the subject changes: locking up is one chunk, and the council-tax note starts another. Only very short neighbouring headings on the same subject share a chunk.",
     chunks: [
       {
         sections: [0],
@@ -112,7 +112,7 @@ export const DEMO_TIERS: Record<string, DemoTier> = {
       {
         sections: [3],
         topic: "The till",
-        why: "The till is the next heading. The comparison does not cross that line.",
+        why: "The till is short, so it is compared with the bread, but it is a different subject and starts its own chunk.",
       },
       {
         sections: [4],

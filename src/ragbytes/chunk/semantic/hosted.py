@@ -2,6 +2,7 @@
 
 from ragbytes.chunk.semantic.embed import OpenAIEmbedder
 from ragbytes.chunk.semantic.semantic import chunk_semantic
+from ragbytes.chunk.semantic.styles import BALANCED, Style
 from ragbytes.config import settings
 from ragbytes.schemas import Chunk, Section
 
@@ -14,7 +15,7 @@ class SemanticEmbedError(Exception):
     """The embedding call failed. The message does not include the key or the document."""
 
 
-def chunk_semantic_hosted(sections: list[Section], *, filename: str) -> list[Chunk]:
+def chunk_semantic_hosted(sections: list[Section], *, filename: str, style: Style = BALANCED) -> list[Chunk]:
     """Chunk with the server's key. The request itself never carries a key.
 
     Passage text is sent to OpenAI and dropped with the rest of the upload when
@@ -25,6 +26,7 @@ def chunk_semantic_hosted(sections: list[Section], *, filename: str) -> list[Chu
     if not key:
         raise SemanticNotConfigured("Semantic chunking is unavailable.")
     try:
-        return chunk_semantic(sections, filename=filename, embedder=OpenAIEmbedder(key))
+        embedder = OpenAIEmbedder(key, model=settings.semantic_model)
+        return chunk_semantic(sections, filename=filename, embedder=embedder, style=style)
     except (RuntimeError, OSError) as exc:
         raise SemanticEmbedError("The document could not be embedded.") from exc

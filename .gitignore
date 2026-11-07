@@ -15,6 +15,7 @@ venv/
 .coverage
 htmlcov/
 test_documents/
+.semantic_cache.json
 data/
 deploy/certs/
 *.pem

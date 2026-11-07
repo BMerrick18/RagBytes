@@ -1,5 +1,20 @@
+import math
+
 from ragbytes.chunk.semantic.boundaries import cosine, cut_indexes, first_pass_cuts
 from ragbytes.chunk.semantic.embed_prep import PreparedSentence
+
+
+def _alike(count: int, score: float) -> list[list[float]]:
+    """Unit vectors where every pair scores ``score``: one shared part and one part each."""
+    return [
+        [math.sqrt(score)] + [math.sqrt(1 - score) if slot == index else 0.0 for slot in range(count)]
+        for index in range(count)
+    ]
+
+
+def _at(score: float) -> list[float]:
+    """A unit vector that scores ``score`` against ``[1, 0]``."""
+    return [score, math.sqrt(1 - score * score)]
 
 
 def _passage(group: int, order: int) -> PreparedSentence:
@@ -36,6 +51,45 @@ def test_a_low_outlier_among_close_joins_is_the_only_cut():
     cuts = cut_indexes([same, same, same, other, other])
 
     assert cuts == [3]
+
+
+def test_related_passages_that_score_below_one_half_stay_together():
+    assert cut_indexes(_alike(6, 0.45)) == []
+    assert cut_indexes(_alike(2, 0.35)) == []
+    assert cut_indexes(_alike(2, 0.25)) == [1]
+
+
+def test_a_windowed_dip_cuts_once_at_its_lowest_join():
+    same = [1.0, 0.0]
+    near = _at(0.5)
+
+    assert cut_indexes([same, same, same, near, near, near]) == [3]
+
+
+def test_a_long_run_splits_evenly_at_its_weakest_join():
+    vectors = [[1.0, 0.0]] * 6
+
+    assert cut_indexes(vectors) == []
+    assert cut_indexes(vectors, [500] * 6) == [3]
+
+
+def test_a_short_run_joins_its_closer_neighbour():
+    vectors = [_at(0.4), [1.0, 0.0], [1.0, 0.0], [1.0, 0.0]]
+
+    assert cut_indexes(vectors) == [1]
+    assert cut_indexes(vectors, [50, 400, 400, 400]) == []
+
+
+def test_a_short_run_stays_apart_from_unrelated_neighbours():
+    vectors = [[1.0, 0.0], [0.0, 1.0], [0.0, 1.0]]
+
+    assert cut_indexes(vectors, [50, 400, 400]) == [1]
+
+
+def test_a_short_run_is_not_joined_past_the_size_limit():
+    vectors = [_at(0.4), [1.0, 0.0], [1.0, 0.0], [1.0, 0.0]]
+
+    assert cut_indexes(vectors, [50, 650, 650, 650]) == [1]
 
 
 def test_each_embed_group_is_judged_on_its_own():
