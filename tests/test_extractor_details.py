@@ -3,6 +3,7 @@ import io
 from docx import Document
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls
+from docx.shared import Pt
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
@@ -303,6 +304,94 @@ def test_pdf_bold_title_case_heads_a_section_and_a_sentence_does_not():
     ]
 
 
+def test_pdf_a_wrapped_part_of_sentence_is_not_a_heading():
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+    pdf.setFont("Helvetica", 11)
+    pdf.drawString(72, 720, "Part of the informal counselling process will be creating a Performance Improvement")
+    pdf.drawString(72, 706, "Plan which will lay out goals for the employee.")
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.drawString(72, 650, "Formal Capability Procedure")
+    pdf.setFont("Helvetica", 11)
+    pdf.drawString(72, 630, "This stage of the procedure is triggered later.")
+    pdf.save()
+
+    sections = extract_pdf(buffer.getvalue())
+    paths = {tuple(section.headings) for section in sections}
+    text = "\n".join(section.data for section in sections)
+
+    assert not any("Part of the informal" in path for path in paths)
+    assert ("Formal Capability Procedure",) in paths
+    assert "Part of the informal counselling process" in text
+
+
+def test_pdf_capital_titles_sit_above_mixed_case_of_the_same_size():
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.drawString(72, 720, "ANNUAL LEAVE")
+    pdf.setFont("Helvetica", 11)
+    pdf.drawString(72, 700, "Staff take leave in days.")
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.drawString(72, 650, "Carrying Over Leave")
+    pdf.setFont("Helvetica", 11)
+    pdf.drawString(72, 630, "Up to five days may be carried.")
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.drawString(72, 580, "MATERNITY LEAVE")
+    pdf.setFont("Helvetica", 11)
+    pdf.drawString(72, 560, "Leave starts on the agreed date.")
+    pdf.save()
+
+    sections = extract_pdf(buffer.getvalue())
+    paths = {tuple(section.headings) for section in sections}
+
+    assert ("ANNUAL LEAVE", "Carrying Over Leave") in paths
+    assert ("MATERNITY LEAVE",) in paths
+
+
+def test_pdf_a_bold_title_followed_by_a_picture_still_heads_the_section():
+    from PIL import Image as PilImage
+    from reportlab.lib.utils import ImageReader
+
+    picture = io.BytesIO()
+    PilImage.new("RGB", (40, 20), "blue").save(picture, format="PNG")
+    picture.seek(0)
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.drawString(72, 720, "ANNUAL LEAVE")
+    pdf.drawImage(ImageReader(picture), 72, 680, width=40, height=20, mask="auto")
+    pdf.setFont("Helvetica", 11)
+    pdf.drawString(72, 650, "Staff take leave in days.")
+    pdf.save()
+
+    sections = extract_pdf(buffer.getvalue())
+
+    assert any(section.headings[:1] == ["ANNUAL LEAVE"] and "Staff take leave" in section.data for section in sections)
+
+
+def test_pdf_drops_a_stamp_printed_on_every_page():
+    from PIL import Image as PilImage
+    from reportlab.lib.utils import ImageReader
+
+    picture = io.BytesIO()
+    PilImage.new("RGB", (16, 16), "navy").save(picture, format="PNG")
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+    for number in range(3):
+        picture.seek(0)
+        pdf.drawImage(ImageReader(picture), 500, 750, width=16, height=16, mask="auto")
+        pdf.setFont("Helvetica", 11)
+        pdf.drawString(72, 700, f"Page body {number + 1}.")
+        pdf.showPage()
+    pdf.save()
+
+    sections = extract_pdf(buffer.getvalue())
+
+    assert not any(section.kind == "image" for section in sections)
+    assert "Page body 1." in "\n".join(section.data for section in sections)
+
+
 def test_pdf_diagram_labels_and_a_table_caption_are_not_headings():
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=letter)
@@ -543,3 +632,120 @@ def test_docx_footnote_follows_the_paragraph_that_refers_to_it():
         ("text", ["Guide"], "Footnote 1: Rated for 250 V."),
         ("text", ["Guide"], "Close the cover."),
     ]
+
+
+def test_docx_bold_body_size_title_without_spacing_heads_a_section():
+    document = Document()
+    title = document.add_paragraph()
+    run = title.add_run("Disciplinary action")
+    run.bold = True
+    run.font.size = Pt(11)
+    body = document.add_paragraph()
+    body_run = body.add_run("A first written warning will be issued.")
+    body_run.font.size = Pt(11)
+
+    sections = extract_docx(_docx(document))
+
+    assert _view(sections) == [
+        ("text", ["Disciplinary action"], "A first written warning will be issued."),
+    ]
+
+
+def test_docx_a_short_title_before_a_list_heads_the_list():
+    document = Document()
+    document.add_paragraph("Examples of misconduct")
+    document.add_paragraph("unauthorised absence", style="List Bullet")
+    document.add_paragraph("poor timekeeping", style="List Bullet")
+
+    sections = extract_docx(_docx(document))
+
+    assert _view(sections) == [
+        (
+            "list",
+            ["Examples of misconduct"],
+            "- unauthorised absence\n- poor timekeeping",
+        ),
+    ]
+
+
+def _word(text: str, x0: float, top: float, x1: float | None = None, bottom: float | None = None) -> dict:
+    width = 6 * len(text)
+    return {
+        "text": text,
+        "x0": x0,
+        "x1": x1 if x1 is not None else x0 + width,
+        "top": top,
+        "bottom": bottom if bottom is not None else top + 8,
+    }
+
+
+def test_a_lone_figure_frame_keeps_the_labels_around_its_steps():
+    from ragbytes.extract import pdf_drawings as drawings
+
+    frame = (10, 10, 210, 160)
+    steps = [(30, 40, 70, 70), (90, 40, 130, 70), (150, 40, 190, 70)]
+    links = [(68, 52, 92, 56), (128, 52, 152, 56), (70, 54, 74, 58)]
+    cluster = [frame, *steps, *links]
+    words = [
+        _word("IN+", 34, 46, 66, 64),
+        _word("OUT", 94, 46, 126, 64),
+        _word("GND", 154, 46, 186, 64),
+        _word("Pin 1 is the non-inverting input.", 20, 120, 200, 132),
+    ]
+    drawing = drawings._as_diagram(cluster, drawings._union(cluster), words, set(links), cluster[:4], set())
+
+    assert drawing is not None
+    assert "Pin 1 is the non-inverting input." in drawing.text
+
+
+def test_repeated_slide_frames_leave_the_bullets_out_of_the_diagram():
+    from ragbytes.extract import pdf_drawings as drawings
+
+    def slide(left: float) -> tuple[list, list]:
+        frame = (left, 10, left + 180, 160)
+        steps = [
+            (left + 20, 30, left + 70, 60),
+            (left + 20, 80, left + 70, 110),
+            (left + 100, 50, left + 160, 90),
+        ]
+        links = [
+            (left + 40, 58, left + 44, 82),
+            (left + 68, 50, left + 102, 54),
+            (left + 108, 70, left + 112, 86),
+        ]
+        words = [
+            _word("Disk", left + 24, 36, left + 66, 54),
+            _word("Parity", left + 24, 86, left + 66, 104),
+            _word("XOR", left + 108, 60, left + 150, 80),
+            _word("Keep a spare in the rack.", left + 20, 130, left + 170, 142),
+        ]
+        return [frame, *steps, *links], words
+
+    left_cluster, left_words = slide(10)
+    right_cluster, right_words = slide(220)
+    shapes = [left_cluster[:4], right_cluster[:4]]
+    slide_sizes = drawings._slide_sizes(shapes)
+    drawing = drawings._as_diagram(
+        left_cluster,
+        drawings._union(left_cluster),
+        left_words,
+        set(left_cluster[4:]),
+        shapes[0],
+        slide_sizes,
+    )
+
+    assert slide_sizes
+    assert drawing is not None
+    assert "XOR" in drawing.text
+    assert "Keep a spare" not in drawing.text
+
+
+def test_a_numeric_arrowhead_cluster_is_not_a_flow():
+    from ragbytes.extract import pdf_drawings as drawings
+
+    bars = [(20 + index * 8, 40, 24 + index * 8, 44) for index in range(6)]
+    region = (10, 10, 80, 80)
+    cluster = [region, *bars]
+    words = [_word(str(value), 20 + index * 8, 50) for index, value in enumerate((0, 5, 10, 15, 20, 25))]
+
+    assert drawings._as_flow(cluster, region, words) is None

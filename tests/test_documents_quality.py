@@ -178,6 +178,29 @@ def test_corpus_outdoors_handbook_keeps_a_policy_tree():
     paths = {tuple(section.headings) for section in sections}
     text = "\n".join(section.data for section in sections)
 
-    assert ("Handbook", "Absence Management", "Aim") in paths
+    assert {section.title for section in sections} == {"Employee Handbook"}
+    assert ("Absence Management", "Aim") in paths
+    assert ("Company Policies and Procedures", "Capability Procedure", "Informal Counselling") in paths
     assert not any("Part-time employees receive" in path for path in paths)
+    assert not any("Part of the informal" in path for path in paths)
     assert "Part-time employees receive a pro-rated entitlement" in text
+
+
+def test_corpus_council_handbook_keeps_policy_titles_as_headings():
+    sections = _corpus("policy - council staff handbook.pdf")
+    paths = {tuple(section.headings) for section in sections}
+
+    assert any(path[:1] == ("ANNUAL LEAVE",) for path in paths)
+    assert any(path[:1] == ("EMPLOYEE CODE OF CONDUCT",) for path in paths)
+    assert any("Carrying Over Leave" in path for path in paths)
+    assert not any(len(path) > 1 and path[0] == "Property Sub Committee" for path in paths)
+    assert not any(section.kind == "image" and "Adopted" in section.data for section in sections)
+
+
+def test_corpus_disciplinary_policy_reads_section_titles():
+    sections = _corpus("policy - parish disciplinary policy.docx")
+    paths = {tuple(section.headings) for section in sections}
+
+    assert ("Examples of misconduct",) in paths
+    assert any("Disciplinary investigation" in path for path in paths)
+    assert any("The appeal" in path for path in paths)
