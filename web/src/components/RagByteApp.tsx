@@ -7,27 +7,49 @@ import { CollapseButton } from "@/components/CollapseButton";
 import { Dropzone } from "@/components/Dropzone";
 import { HowItWorks } from "@/components/HowItWorks";
 import { ResultsView } from "@/components/ResultsView";
+import { SemanticOptionsPanel } from "@/components/SemanticOptionsPanel";
 import { TierPicker } from "@/components/TierPicker";
 import { UsageStats } from "@/components/UsageStats";
 import { loadSampleDocument, SAMPLE_DOCUMENT } from "@/lib/sample";
+import {
+  DEFAULT_SEMANTIC_OPTIONS,
+  maxChunkCharsProblem,
+  semanticFields,
+  styleName,
+  type SemanticOptions,
+} from "@/lib/semantic";
 import { formatNumber } from "@/lib/stats";
 import { isAccepted, TIERS } from "@/lib/tiers";
 import type { ChunkResponse, Job } from "@/lib/types";
 
-async function chunkFile(file: File, tier: string): Promise<ChunkResponse> {
+async function chunkFile(file: File, tier: string, semantic?: SemanticOptions): Promise<ChunkResponse> {
   const form = new FormData();
   form.append("file", file);
   form.append("method", tier);
+  if (tier === "semantic" && semantic) {
+    for (const [name, value] of semanticFields(semantic)) form.append(name, value);
+  }
   const response = await fetch("/api/chunks", { method: "POST", body: form });
   const body = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(body?.detail ?? `The service returned ${response.status}.`);
+    throw new Error(errorMessage(body?.detail) ?? `The service returned ${response.status}.`);
   }
   return body as ChunkResponse;
 }
 
+/** A string detail, or the messages from a validation error's list of problems. */
+function errorMessage(detail: unknown): string | undefined {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const messages = detail.map((item) => (typeof item?.msg === "string" ? item.msg : null)).filter(Boolean);
+    if (messages.length > 0) return messages.join(" ");
+  }
+  return undefined;
+}
+
 export function RagByteApp() {
   const [tier, setTier] = useState("structured");
+  const [semantic, setSemantic] = useState<SemanticOptions>(DEFAULT_SEMANTIC_OPTIONS);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [rejected, setRejected] = useState<string[]>([]);
@@ -40,6 +62,7 @@ export function RagByteApp() {
 
   const queued = jobs.filter((job) => job.status === "queued");
   const selected = jobs.find((job) => job.id === selectedId) ?? null;
+  const optionsInvalid = tier === "semantic" && maxChunkCharsProblem(semantic.maxChunkChars) !== null;
 
   function addFiles(files: File[]) {
     const accepted = files.filter(isAccepted);
@@ -67,11 +90,12 @@ export function RagByteApp() {
 
   async function run() {
     setRunning(true);
+    const options = tier === "semantic" ? semantic : undefined;
     for (const job of queued) {
-      update(job.id, { status: "running", tier });
+      update(job.id, { status: "running", tier, semantic: options });
       const started = performance.now();
       try {
-        const result = await chunkFile(job.file, tier);
+        const result = await chunkFile(job.file, tier, options);
         update(job.id, { status: "done", result, elapsedMs: performance.now() - started });
         setSelectedId((current) => current ?? job.id);
       } catch (error) {
@@ -79,6 +103,10 @@ export function RagByteApp() {
       }
     }
     setRunning(false);
+  }
+
+  function chunkAgain(job: Job) {
+    setJobs((current) => [...current, { id: crypto.randomUUID(), file: job.file, tier, status: "queued" }]);
   }
 
   function remove(id: string) {
@@ -144,6 +172,7 @@ export function RagByteApp() {
           />
         </div>
         <TierPicker id={tierPickerId} value={tier} onChange={setTier} collapsed={!tiersOpen} />
+        {tier === "semantic" && <SemanticOptionsPanel value={semantic} onChange={setSemantic} disabled={running} />}
       </section>
 
       <section id="upload"className="flex flex-col gap-4">
@@ -196,6 +225,7 @@ export function RagByteApp() {
                 job={job}
                 selected={job.id === selectedId}
                 onSelect={() => setSelectedId(job.id)}
+                onAgain={() => chunkAgain(job)}
                 onRemove={() => remove(job.id)}
                 disabled={running}
               />
@@ -206,7 +236,7 @@ export function RagByteApp() {
           <button
             type="button"
             onClick={run}
-            disabled={running || queued.length === 0}
+            disabled={running || queued.length === 0 || optionsInvalid}
             className="rounded-lg bg-cyan-400 px-5 py-2.5 font-semibold text-zinc-950 transition-colors hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
           >
             {running
@@ -244,12 +274,14 @@ interface JobRowProps {
   job: Job;
   selected: boolean;
   onSelect: () => void;
+  onAgain: () => void;
   onRemove: () => void;
   disabled: boolean;
 }
 
-function JobRow({ job, selected, onSelect, onRemove, disabled }: JobRowProps) {
-  const tierName = TIERS.find((tier) => tier.id === job.tier)?.name ?? job.tier;
+function JobRow({ job, selected, onSelect, onAgain, onRemove, disabled }: JobRowProps) {
+  const baseName = TIERS.find((tier) => tier.id === job.tier)?.name ?? job.tier;
+  const tierName = job.semantic ? `${baseName} (${styleName(job.semantic.style)})` : baseName;
   return (
     <li className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 ${selected ? "bg-cyan-400/5" : ""}`}>
       <StatusDot status={job.status} />
@@ -272,6 +304,15 @@ function JobRow({ job, selected, onSelect, onRemove, disabled }: JobRowProps) {
           }`}
         >
           {selected ? "Viewing" : "View"}
+        </button>
+      )}
+      {(job.status === "done" || job.status === "error") && !disabled && (
+        <button
+          type="button"
+          onClick={onAgain}
+          className="min-h-11 rounded-md px-3 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 md:min-h-0"
+        >
+          Chunk again
         </button>
       )}
       {!disabled && (

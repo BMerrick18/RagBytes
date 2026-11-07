@@ -3,7 +3,14 @@
 import { useRef, useState } from "react";
 import { ApiResponse, callApi, type ApiResult } from "@/components/ApiResponse";
 import { CodeBlock } from "@/components/PageShell";
+import { SemanticOptionsPanel } from "@/components/SemanticOptionsPanel";
 import { loadSampleDocument } from "@/lib/sample";
+import {
+  DEFAULT_SEMANTIC_OPTIONS,
+  maxChunkCharsProblem,
+  semanticFields,
+  type SemanticOptions,
+} from "@/lib/semantic";
 import { formatNumber } from "@/lib/stats";
 import { ACCEPTED_EXTENSIONS, isAccepted, TIERS } from "@/lib/tiers";
 
@@ -15,17 +22,22 @@ const LANGUAGES: { id: Language; label: string }[] = [
   { id: "javascript", label: "JavaScript" },
 ];
 
-function snippet(language: Language, url: string, filename: string): string {
+function snippet(language: Language, url: string, filename: string, fields: [string, string][]): string {
   switch (language) {
     case "curl":
-      return `curl -F "file=@${filename}" ${url}`;
-    case "python":
+      return ["curl", `-F "file=@${filename}"`, ...fields.map(([name, value]) => `-F "${name}=${value}"`), url].join(
+        fields.length > 0 ? " \\\n  " : " ",
+      );
+    case "python": {
+      const data = fields.length
+        ? `\n        data={${fields.map(([name, value]) => `"${name}": "${value}"`).join(", ")}},`
+        : "";
       return `import requests
 
 with open("${filename}", "rb") as f:
     response = requests.post(
         "${url}",
-        files={"file": f},
+        files={"file": f},${data}
         timeout=120,
     )
 response.raise_for_status()
@@ -33,10 +45,11 @@ response.raise_for_status()
 for chunk in response.json()["chunks"]:
     vector = embed(chunk["embed_text"])  # your embedding model
     store(vector, chunk["content"], chunk["metadata"])`;
+    }
     case "javascript":
       return `const form = new FormData();
 form.append("file", file); // a File, e.g. from <input type="file">: ${filename}
-
+${fields.map(([name, value]) => `form.append("${name}", "${value}");\n`).join("")}
 const response = await fetch("${url}", { method: "POST", body: form });
 if (!response.ok) throw new Error((await response.json()).detail);
 const { chunks } = await response.json();
@@ -58,10 +71,13 @@ export function ApiPlayground({ base }: { base: string }) {
   const [problem, setProblem] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<ApiResult | null>(null);
+  const [semantic, setSemantic] = useState<SemanticOptions>(DEFAULT_SEMANTIC_OPTIONS);
   const input = useRef<HTMLInputElement>(null);
 
   const url = `${base}/v1/chunk/${tier}`;
   const filename = file?.name ?? "report.pdf";
+  const fields = tier === "semantic" ? semanticFields(semantic) : [];
+  const optionsInvalid = tier === "semantic" && maxChunkCharsProblem(semantic.maxChunkChars) !== null;
 
   function choose(chosen: File | undefined) {
     setResult(null);
@@ -87,6 +103,7 @@ export function ApiPlayground({ base }: { base: string }) {
     setRunning(true);
     const form = new FormData();
     form.append("file", file);
+    for (const [name, value] of fields) form.append(name, value);
     setResult(await callApi(url, { method: "POST", body: form }));
     setRunning(false);
   }
@@ -115,6 +132,16 @@ export function ApiPlayground({ base }: { base: string }) {
             </button>
           ))}
         </div>
+        {tier === "semantic" && (
+          <SemanticOptionsPanel
+            value={semantic}
+            onChange={(options) => {
+              setSemantic(options);
+              setResult(null);
+            }}
+            disabled={running}
+          />
+        )}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -167,14 +194,14 @@ export function ApiPlayground({ base }: { base: string }) {
             </button>
           ))}
         </div>
-        <CodeBlock>{snippet(language, url, filename)}</CodeBlock>
+        <CodeBlock>{snippet(language, url, filename, fields)}</CodeBlock>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={send}
-          disabled={!file || running}
+          disabled={!file || running || optionsInvalid}
           className="rounded-lg bg-cyan-400 px-5 py-2.5 font-semibold text-zinc-950 transition-colors hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
         >
           {running ? "Sending…" : "Send request"}

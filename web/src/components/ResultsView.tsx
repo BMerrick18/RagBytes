@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ChunkCard, FORMAT_STYLES } from "@/components/ChunkCard";
 import { downloadJson, downloadJsonl } from "@/lib/download";
+import { describeApplied } from "@/lib/semantic";
 import { chunkStats, formatNumber } from "@/lib/stats";
 import type { ChunkFormat, ChunkResponse } from "@/lib/types";
 
@@ -35,6 +36,7 @@ export function ResultsView({ result, elapsedMs }: { result: ChunkResponse; elap
             {stats.pages > 0 && ` across ${stats.pages} pages`}
             {elapsedMs !== undefined && ` · processed in ${(elapsedMs / 1000).toFixed(1)}s`}
           </p>
+          {result.options && <p className="text-sm text-cyan-300/90">{describeApplied(result.options)}</p>}
         </div>
         <div className="flex flex-wrap gap-2">
           <button
