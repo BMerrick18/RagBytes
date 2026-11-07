@@ -204,24 +204,28 @@ def _document_title(sections: list[Section], paths: list[list[int] | None]) -> s
 
     Text before that heading may have no headings at all. A file whose only
     heading is that title has nothing to lift out from under it, so it keeps
-    its heading.
+    its heading. The title is matched without regard to case, since a cover
+    sets it in capitals where the body does not. The spelling on the cover,
+    where it first appears, is the one kept.
     """
     top: tuple[int, str] | None = None
+    title: str | None = None
     nested = False
     for section, path in zip(sections, paths, strict=True):
         if not section.headings:
             continue
         if not path or len(path) != len(section.headings):
             return None
-        outer = (path[0], section.headings[0])
+        outer = (path[0], section.headings[0].casefold())
         if top is None:
             top = outer
+            title = section.headings[0]
         elif outer != top:
             return None
         nested = nested or len(path) > 1
     if top is None or not nested:
         return None
-    return top[1]
+    return title
 
 
 def _without_title(

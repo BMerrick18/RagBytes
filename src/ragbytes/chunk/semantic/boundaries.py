@@ -112,37 +112,63 @@ def cut_indexes(
 
 
 def attach_fragments(passages: list[PreparedSentence], cuts: list[int], style: Style = BALANCED) -> list[int]:
-    """Join each run that is only a short label, date, or code to a neighbour.
+    """Join each run that is too small to stand alone to a neighbour, whatever its score.
 
     A fragment is text under the style's fragment size that does not end like
     a sentence, such as ``September 2026`` or ``ISBN: 978-1-4731-3145-3``. It
     says little on its own, so it joins the run after it, which it usually
-    introduces, or the run before it at the end. Similarity is not checked.
-    Tables, code, and figures are never fragments.
+    introduces, or the run before it at the end. A tiny run is text under the
+    style's tiny size, such as a one-line closing remark. Its score against
+    its neighbours is often low, because a short sentence shares few words
+    with the paragraphs around it, yet on its own it is too little to find
+    or to read. It joins the text run before it, which it usually concludes,
+    or the run after it at the start, when the joined run still fits the
+    style's maximum. Tables, code, and figures are never fragments or tiny,
+    and a tiny run never joins one of them, so a figure keeps its bytes.
     """
     starts = sorted({0, *(cut for cut in cuts if 0 < cut < len(passages))})
     while len(starts) > 1:
         bounds = [*starts, len(passages)]
-        found = next(
+        runs = list(zip(bounds, bounds[1:]))
+        removed = next(
             (
-                (begin, end)
-                for begin, end in zip(bounds, bounds[1:])
-                if _is_fragment(passages[begin:end], style)
+                removed
+                for position, run in enumerate(runs)
+                if (removed := _join_target(passages, runs, position, style)) is not None
             ),
             None,
         )
-        if found is None:
+        if removed is None:
             break
-        begin, end = found
-        starts.remove(end if end < len(passages) else begin)
+        starts.remove(removed)
     return [start for start in starts if start]
 
 
-def _is_fragment(part: list[PreparedSentence], style: Style) -> bool:
+def _join_target(
+    passages: list[PreparedSentence], runs: list[tuple[int, int]], position: int, style: Style
+) -> int | None:
+    """Return the start index to remove so this run joins a neighbour, or None to leave it."""
+    begin, end = runs[position]
+    part = passages[begin:end]
     if any(passage.kind not in _FRAGMENT_KINDS for passage in part):
-        return False
+        return None
     text = "\n\n".join(passage.text for passage in part).strip()
-    return len(text) < style.fragment_chars and not text.endswith(_SENTENCE_ENDS)
+    after = end if position + 1 < len(runs) else None
+    before = begin if position > 0 else None
+    if len(text) < style.fragment_chars and not text.endswith(_SENTENCE_ENDS):
+        return after if after is not None else before
+    if len(text) >= style.tiny_chars:
+        return None
+    for start, neighbour in ((before, position - 1), (after, position + 1)):
+        if start is None:
+            continue
+        other = passages[slice(*runs[neighbour])]
+        if any(passage.kind not in _FRAGMENT_KINDS for passage in other):
+            continue
+        joined = sum(len(passage.text) for passage in [*part, *other]) + 2 * (len(part) + len(other) - 1)
+        if joined <= style.max_chars:
+            return start
+    return None
 
 
 def _topic_cuts(vectors: list[list[float]], scores: list[float], floor: float) -> list[int]:

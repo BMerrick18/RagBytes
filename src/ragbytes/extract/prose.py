@@ -58,6 +58,8 @@ _HTML_TAG = re.compile(
 _HTML_BLOCK = re.compile(r"^<(?:[A-Za-z][\w-]*|/[A-Za-z][\w-]*|!--)(?:[\s/>]|$)")
 _ANY_IMAGE = re.compile(f"{_IMAGE.pattern}|{_HTML_IMAGE.pattern}", re.IGNORECASE)
 _HTML_HEADINGS = {"h1": 1, "h2": 2, "h3": 3, "h4": 4, "h5": 5, "h6": 6}
+# Block-level elements a raw HTML block in Markdown is read by, one at a time.
+_HTML_UNITS = frozenset({*_HTML_HEADINGS, "p", "div", "section", "header", "figure", "center", "blockquote"})
 _NUMBERED_TITLE = re.compile(r"^(\d{1,2})\.[ \t]+(\S.*?)\s*$")
 _PAGE_FOOTER = re.compile(r"\[Page \d+\]\s*$")
 _CODE_SIGNS = re.compile(r"[=;{}<>|]|\S {3,}\S|^[A-Z]+ /\S* HTTP/")
@@ -93,7 +95,9 @@ def extract_markdown(data: bytes) -> list[Section]:
     An image in a sentence stays in that sentence and also becomes its own
     section. A data URI keeps the picture bytes. Inline markup, escapes,
     footnote markers, and inline HTML tags are removed. A block of raw HTML
-    is read for its words and pictures. A link definition, an abbreviation
+    is read for its words and pictures, a paragraph at a time. A linked logo
+    that opens the file names the document, and a row of linked badges with
+    no words beside it is left out. A link definition, an abbreviation
     definition, a thematic break, and a container fence are left out, and so
     is an attribute list such as ``{ #id }`` after a title. A ``///`` block
     or a ``!!!`` admonition keeps its title as text, and the admonition's
@@ -597,20 +601,51 @@ def _read_footnote(lines: list[str], index: int, first: str) -> tuple[str, int]:
 
 
 def _emit_html_block(block: str, sections: list[Section], state: HeadingState) -> None:
-    """Read a raw HTML block in Markdown for its title, words, and pictures."""
+    """Read a raw HTML block in Markdown for its titles, words, and pictures.
+
+    A block of several paragraphs or divisions is read one at a time, so a
+    title, a line of text, and a row of pictures set together without blank
+    lines between them still come out as three things. The block that opens
+    the file is a README's masthead when it holds linked pictures with no
+    words: a single picture names the document, so its description becomes
+    the top heading, and a row of two or more is its badges, which are left
+    out, since ``[Image: Test]`` and ``[Image: Coverage]`` say nothing to
+    embed. Later rows of linked pictures, such as sponsor logos, are kept.
+    """
     soup = BeautifulSoup(block, "html.parser")
     for comment in soup.find_all(string=lambda value: isinstance(value, Comment)):
         comment.extract()
-    pictures = []
-    for image in soup.find_all("img"):
+    opening = not sections and not state.headings
+    children = [child for child in soup.contents if isinstance(child, Tag) or str(child).strip()]
+    units = [child for child in children if isinstance(child, Tag) and child.name in _HTML_UNITS]
+    if len(units) > 1 and len(units) == len(children):
+        for unit in units:
+            _emit_html_unit(unit, sections, state, opening=opening)
+        return
+    _emit_html_unit(soup, sections, state, opening=opening)
+
+
+def _emit_html_unit(node: Tag, sections: list[Section], state: HeadingState, *, opening: bool) -> None:
+    pictures: list[str] = []
+    descriptions: list[str] = []
+    linked = 0
+    for image in node.find_all("img"):
         link = image.find_parent("a")
+        linked += link is not None
         description = (
             image.get("alt") or image.get("title") or (link.get("title") if link else "") or ""
         ).strip()
+        descriptions.append(description)
         pictures.append(render_image(description or None))
         image.decompose()
-    heading = soup.find(list(_HTML_HEADINGS))
-    text = inline_text(soup) if soup.contents else ""
+    heading = node if node.name in _HTML_HEADINGS else node.find(list(_HTML_HEADINGS))
+    text = inline_text(node) if node.contents else ""
+    if opening and not text and pictures and linked == len(pictures):
+        if len(pictures) > 1:
+            return
+        if not state.headings and looks_like_heading(descriptions[0]):
+            state.apply(1, descriptions[0])
+            return
     if isinstance(heading, Tag) and text and text == inline_text(heading):
         state.apply(_HTML_HEADINGS[heading.name], text)
     elif text:

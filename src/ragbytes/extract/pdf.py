@@ -94,6 +94,7 @@ _CHAPTER = re.compile(r"^(?:chapter|part|appendix)\b", re.IGNORECASE)
 _SECTION_NUMBER = re.compile(r"^\d{1,3}(?:\.\d{1,3})*\.?\s+\S")
 _TITLE_SCALE = 1.25
 _BOLD_TITLE_WORDS = 10
+_MIN_TITLE_LETTERS = 4
 _SMALL_WORDS = frozenset({"a", "an", "and", "as", "at", "for", "in", "of", "on", "or", "the", "to", "vs"})
 _SECTION_WORD = re.compile(r"^section\b", re.IGNORECASE)
 _FIGURE = re.compile(r"^(?:figure|fig\.?)\s+\d+\b", re.IGNORECASE)
@@ -188,7 +189,9 @@ def _extract_pdf(data: bytes) -> list[Section]:
     body_size = _body_size(pages)
     chrome = _margin_chrome(pages)
     repeats = _running_titles(pages)
-    scale = _heading_scale(pages, body_size, chrome, repeats, outlines)
+    candidates = _heading_candidates(pages, body_size, chrome, repeats, outlines)
+    outlines = _outlines_under_cover(candidates, body_size, outlines)
+    scale = _heading_scale(candidates, body_size)
     state = HeadingState()
     sections: list[Section] = []
     for page_number, height, (words, tables, images) in pages:
@@ -1755,15 +1758,50 @@ def _running_titles(pages: list[tuple[int, float, tuple]]) -> set[str]:
     return {text for text, count in counts.items() if count >= threshold}
 
 
-def _heading_scale(
+def _heading_scale(candidates: list[dict], body_size: float) -> dict[float, int]:
+    """Rank distinct heading sizes. The largest size is level 1."""
+    found = [_size_key(line["size"]) for line in candidates if line["size"] >= body_size * 1.08]
+    ranked = sorted(set(found), reverse=True)
+    return {size: min(index + 1, 6) for index, size in enumerate(ranked)}
+
+
+def _outlines_under_cover(candidates: list[dict], body_size: float, outlines: dict[str, int]) -> dict[str, int]:
+    """Move every outline entry one level down when a larger title opens the file above them.
+
+    A bookmark tree starts at level 1 with the first section it names. A
+    cover title set larger than any bookmarked heading, before the first of
+    them, is the document's title and sits above that tree, so the tree's
+    levels each move down one. The sized levels are ranked from the same
+    sizes, so they already agree.
+    """
+    if not outlines:
+        return outlines
+    positions = [
+        index for index, line in enumerate(candidates) if _outline_level(line["text"], outlines) is not None
+    ]
+    if not positions:
+        return outlines
+    first = positions[0]
+    largest = max(float(candidates[index]["size"]) for index in positions)
+    cover = [
+        line
+        for line in candidates[:first]
+        if float(line["size"]) > largest + 0.5 and float(line["size"]) >= body_size * _TITLE_SCALE
+    ]
+    if not cover:
+        return outlines
+    return {text: min(level + 1, 6) for text, level in outlines.items()}
+
+
+def _heading_candidates(
     pages: list[tuple[int, float, tuple]],
     body_size: float,
     chrome: dict[str, float],
     repeats: set[str],
     outlines: dict[str, int],
-) -> dict[float, int]:
-    """Rank distinct heading sizes. The largest size is level 1."""
-    found: list[float] = []
+) -> list[dict]:
+    """Every line that qualifies as a title, in reading order, with its size and weight."""
+    found: list[dict] = []
     for _, height, (words, tables, images) in pages:
         visible = _without_chrome_tables(tables, height, chrome)
         items = _ordered_blocks(words, visible, images)
@@ -1786,15 +1824,13 @@ def _heading_scale(
             )
             if matched is not None:
                 merged, count = matched
-                if merged["size"] >= body_size * 1.08:
-                    found.append(_size_key(merged["size"]))
+                found.append(merged)
                 previous_bottom = merged["bottom"]
                 index += count
                 continue
             previous_bottom = float(line["bottom"])
             index += 1
-    ranked = sorted(set(found), reverse=True)
-    return {size: min(index + 1, 6) for index, size in enumerate(ranked)}
+    return found
 
 
 def _candidate_heading(
@@ -1886,7 +1922,9 @@ def _is_bold_title(
     text = line["text"]
     if not line["bold"] or body_size <= 0 or float(line["size"]) < body_size - 0.5:
         return False
-    if len(text.split()) > _BOLD_TITLE_WORDS or not looks_like_heading(text) or _FIGURE.match(text):
+    if len(text.split()) > _BOLD_TITLE_WORDS or not looks_like_heading(text):
+        return False
+    if _FIGURE.match(text) or TABLE_LABEL.match(text):
         return False
     if not _title_cased(text):
         return False
@@ -1985,10 +2023,14 @@ def _qualifies(line: dict, body_size: float, gap: float | None, outlines: dict[s
 
     A numbered line such as ``1. Mounting Position`` is a list item unless it
     is set in bold, when it is a numbered section title. A number set apart
-    in the margin labels a paragraph, so it only makes a title in bold.
+    in the margin labels a paragraph, so it only makes a title in bold. A
+    ``Table N`` or ``Figure N`` line is a caption, not a title. A line only a
+    little larger than the body with fewer than four letters, such as a
+    ``Cp`` or ``P0!`` label on a diagram, is not a title either unless it is
+    set in bold.
     """
     text = line["text"]
-    if body_size <= 0 or _FIGURE.match(text):
+    if body_size <= 0 or _FIGURE.match(text) or TABLE_LABEL.match(text):
         return False
     numbered = _NUMBERED_TITLE.match(text) is not None
     if numbered and not line["bold"]:
@@ -2004,11 +2046,18 @@ def _qualifies(line: dict, body_size: float, gap: float | None, outlines: dict[s
     patterned = _pattern_level(text) is not None
     if strong:
         return True
+    if _few_letters(text) and not line["bold"]:
+        return False
     if larger and (line["bold"] or _isolated(gap, line["size"]) or patterned):
         return True
     if patterned and (line["bold"] or _isolated(gap, line["size"])):
         return True
     return False
+
+
+def _few_letters(text: str) -> bool:
+    """Fewer than four letters, as in a diagram label such as ``Cp`` or ``P0! P1!``."""
+    return sum(1 for char in text if char.isalpha()) < _MIN_TITLE_LETTERS
 
 
 def _assigned_level(line: dict, body_size: float, scale: dict[float, int], outlines: dict[str, int]) -> int:

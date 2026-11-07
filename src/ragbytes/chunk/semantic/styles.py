@@ -19,8 +19,9 @@ class Style:
     document lowers it towards ``floor_low`` when its passages score low
     against each other as a rule. ``min_chars`` and ``max_chars`` bound a
     chunk's size. A text run under ``fragment_chars`` that does not end like a
-    sentence, such as a date or a label, always joins a neighbour.
-    ``merge_headings`` lets small neighbouring headings share a chunk.
+    sentence, such as a date or a label, always joins a neighbour, and so
+    does any text run under ``tiny_chars``, half the minimum, whatever its
+    score. ``merge_headings`` lets small neighbouring headings share a chunk.
     """
 
     name: StyleName
@@ -30,6 +31,11 @@ class Style:
     max_chars: int
     fragment_chars: int = 40
     merge_headings: bool = True
+
+    @property
+    def tiny_chars(self) -> int:
+        """Text this short cannot stand as a chunk, however unrelated its neighbours score."""
+        return self.min_chars // 2
 
 
 STYLES: dict[StyleName, Style] = {

@@ -50,18 +50,45 @@ def test_close_passages_under_one_heading_share_a_chunk():
     assert embedder.batches == [["Warm the lamp.", "Read the meter."]]
 
 
+# Passages long enough to stand as chunks on their own, so a cut between them is kept.
+_LAMP = (
+    "Warm the lamp before the crew arrives, then check the wick and the glass "
+    "so the light carries across the water to the far pier."
+)
+_TARIFF = (
+    "The tariff changed the quay fees for every vessel this season, and the "
+    "harbour office posted the new rates on the gate by the lock."
+)
+_INSTALL = (
+    "Run the installer from the mounted image, accept the defaults, and let it "
+    "finish before you unplug the drive or close the lid."
+)
+
+
 def test_a_drop_in_similarity_starts_a_new_chunk_under_the_same_heading():
     embedder = _Embedder()
     sections = [
-        _section(0, "text", "Warm the lamp.", ["Guide", "Setup"]),
-        _section(1, "text", "The tariff changed the quay.", ["Guide", "Setup"]),
+        _section(0, "text", _LAMP, ["Guide", "Setup"]),
+        _section(1, "text", _TARIFF, ["Guide", "Setup"]),
     ]
 
     chunks = chunk_semantic(sections, filename="guide.txt", embedder=embedder)
 
-    assert [chunk.content for chunk in chunks] == ["Warm the lamp.", "The tariff changed the quay."]
+    assert [chunk.content for chunk in chunks] == [_LAMP, _TARIFF]
     assert [chunk.metadata.chunk_number for chunk in chunks] == [0, 1]
     assert {chunk.metadata.subheading for chunk in chunks} == {"Setup"}
+
+
+def test_a_tiny_closing_sentence_joins_its_paragraph_despite_a_low_score():
+    embedder = _Embedder()
+    sections = [
+        _section(0, "text", _LAMP, ["Guide", "Setup"]),
+        _section(1, "text", "The tariff is discussed in a separate memo.", ["Guide", "Setup"]),
+    ]
+
+    chunks = chunk_semantic(sections, filename="guide.txt", embedder=embedder)
+
+    assert [chunk.content for chunk in chunks] == [f"{_LAMP}\n\nThe tariff is discussed in a separate memo."]
 
 
 _LONG = "Run the installer and wait for it to finish before you continue. " * 4
@@ -93,23 +120,39 @@ def test_small_sibling_headings_share_a_chunk_under_their_parent():
 
     chunks = chunk_semantic(sections, filename="guide.txt", embedder=embedder)
 
-    assert [chunk.content for chunk in chunks] == ["Install\nRun the installer.\n\nConfigure\nEdit the file."]
+    assert [chunk.content for chunk in chunks] == ["Install\n\nRun the installer.\n\nConfigure\n\nEdit the file."]
     assert chunks[0].metadata.headings == ["Guide"]
     assert (chunks[0].metadata.heading, chunks[0].metadata.subheading) == ("Guide", None)
-    assert chunks[0].embed_text == "Guide\n\nInstall\nRun the installer.\n\nConfigure\nEdit the file."
+    assert chunks[0].embed_text == "Guide\n\nInstall\n\nRun the installer.\n\nConfigure\n\nEdit the file."
     assert embedder.batches == [["Run the installer.", "Edit the file."]]
+
+
+def test_small_outermost_headings_keep_their_own_chunks_and_paths():
+    embedder = _Embedder()
+    sections = [
+        _section(0, "text", "Run the installer.", ["Install"]),
+        _section(1, "text", "Edit the file.", ["Configure"]),
+    ]
+
+    chunks = chunk_semantic(sections, filename="guide.txt", embedder=embedder)
+
+    assert [chunk.content for chunk in chunks] == ["Run the installer.", "Edit the file."]
+    assert [chunk.metadata.headings for chunk in chunks] == [["Install"], ["Configure"]]
+    assert [chunk.metadata.heading for chunk in chunks] == ["Install", "Configure"]
+    assert [chunk.embed_text for chunk in chunks] == ["Install\n\nRun the installer.", "Configure\n\nEdit the file."]
+    assert embedder.batches == []
 
 
 def test_unrelated_small_siblings_keep_their_own_headings():
     embedder = _Embedder()
     sections = [
-        _section(0, "text", "Run the installer.", ["Guide", "Install"]),
-        _section(1, "text", "The tariff changed the quay.", ["Guide", "Harbour"]),
+        _section(0, "text", _INSTALL, ["Guide", "Install"]),
+        _section(1, "text", _TARIFF, ["Guide", "Harbour"]),
     ]
 
     chunks = chunk_semantic(sections, filename="guide.txt", embedder=embedder)
 
-    assert [chunk.content for chunk in chunks] == ["Run the installer.", "The tariff changed the quay."]
+    assert [chunk.content for chunk in chunks] == [_INSTALL, _TARIFF]
     assert [chunk.metadata.headings for chunk in chunks] == [["Guide", "Install"], ["Guide", "Harbour"]]
 
 
@@ -166,7 +209,7 @@ def test_a_parents_opening_text_joins_its_small_first_child():
 
     chunks = chunk_semantic(sections, filename="guide.txt", embedder=embedder)
 
-    assert [chunk.content for chunk in chunks] == ["These steps prepare the host.\n\nInstall\nRun the installer."]
+    assert [chunk.content for chunk in chunks] == ["These steps prepare the host.\n\nInstall\n\nRun the installer."]
     assert chunks[0].metadata.headings == ["Guide", "Setup"]
 
 
@@ -182,7 +225,7 @@ def test_a_parents_opening_text_waits_for_its_child_rather_than_joining_the_head
 
     assert [chunk.content for chunk in chunks] == [
         "Measure the room.",
-        "These steps prepare the host.\n\nInstall\nRun the installer.",
+        "These steps prepare the host.\n\nInstall\n\nRun the installer.",
     ]
     assert [chunk.metadata.headings for chunk in chunks] == [["Guide", "Survey"], ["Guide", "Setup"]]
 
@@ -234,25 +277,18 @@ def test_both_passes_embed_every_heading_in_one_call():
 def test_short_passages_from_every_heading_share_one_embedding_call():
     embedder = _Embedder()
     sections = [
-        _section(0, "text", "Warm the lamp.", ["Guide", "Setup"]),
+        _section(0, "text", _LAMP, ["Guide", "Setup"]),
         _section(1, "text", "Read the meter.", ["Guide", "Setup"]),
         _section(2, "text", "Open the gate.", ["Guide", "Route"]),
-        _section(3, "text", "The tariff changed the quay.", ["Guide", "Route"]),
+        _section(3, "text", _TARIFF, ["Guide", "Route"]),
     ]
 
     chunks = chunk_semantic(sections, filename="guide.txt", embedder=embedder)
 
-    assert embedder.batches == [
-        [
-            "Warm the lamp.",
-            "Read the meter.",
-            "Open the gate.",
-            "The tariff changed the quay.",
-        ]
-    ]
+    assert embedder.batches == [[_LAMP, "Read the meter.", "Open the gate.", _TARIFF]]
     assert [chunk.content for chunk in chunks] == [
-        "Setup\nWarm the lamp.\n\nRead the meter.\n\nRoute\nOpen the gate.",
-        "The tariff changed the quay.",
+        f"Setup\n\n{_LAMP}\n\nRead the meter.\n\nRoute\n\nOpen the gate.",
+        _TARIFF,
     ]
     assert [chunk.metadata.headings for chunk in chunks] == [["Guide"], ["Guide", "Route"]]
 

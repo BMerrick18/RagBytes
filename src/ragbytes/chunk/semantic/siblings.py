@@ -27,14 +27,18 @@ def merge_small_headings(
 ) -> list[Umbrella]:
     """Join each heading under the style's minimum size to the neighbouring heading beside it.
 
-    Two headings join when either is that small and both sit no more than one
-    level below the path they share: siblings, or a parent's opening text and
-    its first child. A heading change between two larger headings is still
-    always a boundary. A parent's opening text is the start of its own
-    subjects, so it waits for its first child rather than joining the heading
-    before it. Joining only lets the second pass compare them, so passages
-    that are unrelated are still cut apart there. A style that does not merge
-    headings keeps every heading as its own umbrella.
+    Two headings join when either is that small, they share at least one
+    heading above them, and both sit no more than one level below that
+    shared path: siblings, or a parent's opening text and its first child.
+    The shared path is what a chunk that spans them is labelled with, so two
+    outermost headings never join: there is no heading that honestly covers
+    both, and a chunk with no heading path is harder to find than two small
+    chunks with the right one. A heading change between two larger headings
+    is still always a boundary. A parent's opening text is the start of its
+    own subjects, so it waits for its first child rather than joining the
+    heading before it. Joining only lets the second pass compare them, so
+    passages that are unrelated are still cut apart there. A style that does
+    not merge headings keeps every heading as its own umbrella.
     """
     umbrellas: list[Umbrella] = []
     for position, (scope, passages) in enumerate(zip(scopes, ready, strict=True)):
@@ -71,6 +75,8 @@ def _joins(current: Umbrella, headings: list[str], passages: list[PreparedSenten
     if _size(current.passages) >= min_chars and _size(passages) >= min_chars:
         return False
     path = _shared(current.headings, headings)
+    if not path:
+        return False
     return all(len(member) <= len(path) + 1 for member in [*current.members, headings])
 
 

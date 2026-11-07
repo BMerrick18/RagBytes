@@ -188,17 +188,25 @@ def test_semantic_uses_the_server_key_and_returns_chunks(monkeypatch):
             super().__init__(api_key)
             seen["key"] = api_key
 
+    lamp = (
+        "Warm the lamp before the crew arrives, then check the wick and the glass "
+        "so the light carries across the water to the far pier."
+    )
+    tariff = (
+        "The tariff changed the quay fees for every vessel this season, and the "
+        "harbour office posted the new rates on the gate by the lock."
+    )
     monkeypatch.setattr(settings, "openai_api_key", SecretStr("sk-server"))
     monkeypatch.setattr("ragbytes.chunk.semantic.hosted.OpenAIEmbedder", _Capture)
     response = TestClient(app).post(
         "/v1/chunk/semantic",
-        files={"file": ("notes.txt", b"Warm the lamp.\n\nThe tariff changed the quay.\n", "text/plain")},
+        files={"file": ("notes.txt", f"{lamp}\n\n{tariff}\n".encode(), "text/plain")},
     )
     assert response.status_code == 200
     assert seen["key"] == "sk-server"
     assert "sk-server" not in response.text
     body = response.json()
-    assert [chunk["content"] for chunk in body["chunks"]] == ["Warm the lamp.", "The tariff changed the quay."]
+    assert [chunk["content"] for chunk in body["chunks"]] == [lamp, tariff]
 
 
 def test_semantic_reports_the_default_options(monkeypatch):

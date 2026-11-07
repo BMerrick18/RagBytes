@@ -71,6 +71,15 @@ def test_two_top_level_headings_are_not_a_title():
     assert [section.headings for section in sections] == [["Install"], ["Install", "Windows"], ["Configure"]]
 
 
+def test_a_title_repeated_in_another_case_is_still_the_title():
+    sections = extract_markdown(
+        b"# Dental Checks\n\nIntro.\n\n## Overview\n\nText.\n\n# DENTAL CHECKS\n\n## Pain\n\nMore.\n"
+    )
+
+    assert {section.title for section in sections} == {"Dental Checks"}
+    assert [section.headings for section in sections] == [[], ["Overview"], ["Pain"]]
+
+
 def test_a_lone_heading_with_nothing_under_it_stays_a_heading():
     sections = extract_markdown(b"# Notes\n\nOne paragraph.\n\nAnother paragraph.\n")
 
