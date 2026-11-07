@@ -4,7 +4,8 @@ import re
 from dataclasses import dataclass
 
 from ragbytes.chunk.assemble import titled_path
-from ragbytes.chunk.simple import prepared_sections
+from ragbytes.chunk.semantic.styles import BALANCED, Style
+from ragbytes.chunk.simple import _split_table, prepared_sections
 from ragbytes.schemas import Section, SectionKind
 
 # A period after one of these stays in the sentence. Single initials such as
@@ -64,15 +65,29 @@ _ABBREVIATIONS = frozenset(
         "vs",
     }
 )
-_LIST_ITEM = re.compile(r"^([ \t]*)((?:[-*•]|\d{1,9}[.)])[ \t]+)(\S.*?)\s*$")
+# Bullets, ``1.`` / ``1)``, multi-level numbers such as ``1.8.`` and ``7.2``, a bare
+# number such as ``12``, and letter markers such as ``(a)``, ``a)``, and ``i.``.
+_LIST_MARKER = (
+    r"[-*•]"
+    r"|\d+(?:\.\d+)+\.?"
+    r"|\d{1,9}[.)]"
+    r"|\d{1,9}"
+    r"|\([A-Za-z]{1,8}\)"
+    r"|[A-Za-z]\)"
+    r"|[ivxlcdm]+\."
+    r"|[IVXLCDM]+\."
+    r"|[a-z]\."
+)
+_LIST_ITEM = re.compile(rf"^([ \t]*)({_LIST_MARKER})([ \t]+)(\S.*?)\s*$")
+_NUMBERED_CLAUSE = re.compile(r"^\d+(?:\.\d+)*\.?\s")
 _CLOSERS = "\"'”’)]}"
 _OPENERS = "\"'“‘"
 _WHOLE = frozenset({"table", "code", "image", "chart", "complex"})
-# A list this size is one subject. A longer list is cut between items into runs of about this size.
-_SMALL_LIST_ITEMS = 8
-_SMALL_LIST_CHARS = 1000
-# A paragraph this size is one subject. A longer one has room for the subject to change, so it is split into sentences.
-_LONG_PARAGRAPH_CHARS = 1000
+# A one-line lead ending like ``Bring the kit:`` is repeated on later runs.
+# Anything longer is ordinary prose placed once, ahead of the list.
+_LEAD_LIMIT = 200
+# List runs aim at this share of the style maximum, then the first pass decides the cuts.
+_LIST_PACK = 0.75
 
 
 @dataclass
@@ -141,20 +156,21 @@ class HeadingPassages:
     whole: list[PreparedSentence]
 
 
-def prepare_sentences(sections: list[Section]) -> list[HeadingPassages]:
+def prepare_sentences(sections: list[Section], style: Style = BALANCED) -> list[HeadingPassages]:
     """Turn extracted sections into one embedding umbrella per heading path.
 
     Sections are read in file order. A run of sections with the same heading
     and subheading shares an umbrella. A short label just before a figure stays
     on that figure, and a bare ``[Image]``, ``[Chart]``, or ``[Complex]`` is
-    left out. A paragraph of up to about 1,000 characters stays whole, because
-    a paragraph that size is one subject. A longer paragraph is split into
-    sentences, where there is room for the subject to change, and those
-    sentences go to ``to_embed``. A blank line still starts a new paragraph.
-    A list of up to eight items and about 1,000 characters stays whole too. A
-    longer list is cut between items into runs, and those runs go to
-    ``to_embed``. A nested entry stays with its parent. A table, a block of
-    code, an image, a chart, and a complex region stay in ``whole``.
+    left out. A paragraph that fits the style maximum stays whole. A longer
+    paragraph is split into sentences, and those sentences go to ``to_embed``.
+    A blank line still starts a new paragraph. Lines that start a numbered
+    clause keep the newline between them. A list that fits the maximum stays
+    whole too. A longer list is cut between items into runs of about three
+    quarters of that maximum, and those runs go to ``to_embed``. A nested
+    entry stays with its parent until that parent no longer fits a run. A
+    table, a block of code, an image, a chart, and a complex region stay in
+    ``whole``.
 
     Every piece keeps the heading path of the section it came from, for the
     finished chunk. The passes compare passage text without that path.
@@ -162,7 +178,7 @@ def prepare_sentences(sections: list[Section]) -> list[HeadingPassages]:
     scopes: list[HeadingPassages] = []
     order = 0
     for section in prepared_sections(sections):
-        for block in _blocks(section):
+        for block in _blocks(section, style.max_chars):
             if not block.texts:
                 continue
             scope = _scope_for(scopes, section)
@@ -171,6 +187,8 @@ def prepare_sentences(sections: list[Section]) -> list[HeadingPassages]:
             compares = block.compare or [None] * len(block.texts)
             for text, compare in zip(block.texts, compares, strict=True):
                 passage = _from_section(section, text, order, group_id)
+                if block.kind is not None:
+                    passage.kind = block.kind
                 passage.compare_text = compare if split else None
                 order += 1
                 if split:
@@ -241,30 +259,32 @@ class _Block:
 
     ``compare`` matches ``texts`` one for one when a piece should be embedded
     as different text, such as a list run without its repeated lead-in.
+    ``kind`` overrides the section kind, so a long list lead is ordinary prose.
     """
 
     texts: list[str]
     split: bool
     compare: list[str | None] | None = None
+    kind: SectionKind | None = None
 
 
-def _blocks(section: Section) -> list[_Block]:
+def _blocks(section: Section, max_chars: int) -> list[_Block]:
     if section.kind == "list":
-        return _list_blocks(section.data)
+        return _list_blocks(section.data, max_chars)
     if section.kind in _WHOLE:
         text = section.data.strip("\n") if section.kind == "code" else section.data.strip()
         return [_Block([text], split=False)] if text.strip() else []
-    return _prose_blocks(section.data)
+    return _prose_blocks(section.data, max_chars)
 
 
-def _prose_blocks(data: str) -> list[_Block]:
-    """Keep a short paragraph whole, and split only a very long one into sentences."""
+def _prose_blocks(data: str, max_chars: int) -> list[_Block]:
+    """Keep a paragraph that fits the maximum whole, and split only a longer one."""
     blocks: list[_Block] = []
     for paragraph in re.split(r"\n\s*\n", _newlines(data).strip()):
-        line = " ".join(paragraph.split())
+        line = _join_lines(paragraph)
         if not line:
             continue
-        if len(line) <= _LONG_PARAGRAPH_CHARS:
+        if len(line) <= max_chars:
             blocks.append(_Block([line], split=False))
             continue
         sentences = _split_sentences(line)
@@ -272,37 +292,74 @@ def _prose_blocks(data: str) -> list[_Block]:
     return blocks
 
 
+def _join_lines(paragraph: str) -> str:
+    """Join wrapped lines. A numbered clause keeps the newline in front of it."""
+    lines = [" ".join(line.split()) for line in paragraph.split("\n")]
+    lines = [line for line in lines if line]
+    if not lines:
+        return ""
+    pieces = [lines[0]]
+    for line in lines[1:]:
+        pieces.append(("\n" if _NUMBERED_CLAUSE.match(line) else " ") + line)
+    return "".join(pieces)
+
+
 @dataclass
 class _ListItem:
     indent: int
+    depth: int
     lines: list[str]
 
 
-def _list_blocks(data: str) -> list[_Block]:
-    """Return a small list as one chunk, or cut a long list between top-level items.
+def _list_blocks(data: str, max_chars: int) -> list[_Block]:
+    """Return a list that fits the maximum as one chunk, or cut a longer one between items.
 
-    Items in a list of up to eight entries and about 1,000 characters are
-    assumed to share a subject, so the list is one chunk and is not embedded
-    to find a split. A longer list is cut into runs, and those runs are
-    embedded to decide the boundaries. A lead-in such as ``Bring the kit:``
-    stays with the list, and is repeated on each run when the list is cut. A
-    nested entry stays on its parent. A list with no items is read as prose.
+    A lead-in is repeated on later runs only when it is one line, ends with a
+    colon or semicolon, and is under about 200 characters. A longer lead is
+    prose placed once, ahead of the first run, and does not count toward the
+    run size. The embedding text of a run leaves a repeated lead out. A nested
+    entry stays on its parent while the parent fits a run. A list with no
+    items is read as prose.
     """
     text = _newlines(data).strip("\n")
     if not text.strip():
         return []
     lead, items = _parse_list(text)
     if not items:
-        return _prose_blocks(text)
-    if len(items) <= _SMALL_LIST_ITEMS and len(text) <= _SMALL_LIST_CHARS:
-        return [_Block([text], split=False)]
-    pieces: list[str] = []
-    cursor = 0
-    for size in _even_sizes(len(items), -(-len(items) // _SMALL_LIST_ITEMS)):
-        pieces.extend(_pack_list(lead, items[cursor : cursor + size]))
-        cursor += size
-    compare = [_without_lead(lead, piece) for piece in pieces] if lead else None
-    return [_Block(pieces, split=len(pieces) > 1, compare=compare)]
+        return _prose_blocks(text, max_chars)
+    repeats = _lead_repeats(lead)
+    visible = _format_list(lead, items)
+    if len(visible) <= max_chars:
+        return _lead_and_list(lead, [_format_list(lead if repeats else [], items)], repeats and bool(lead), max_chars)
+    target = max(1, int(max_chars * _LIST_PACK))
+    runs = _greedy(_expand(items, target), target)
+    repeated = lead if repeats else []
+    pieces = [_format_list(repeated, run) for run in runs]
+    return _lead_and_list(lead, pieces, repeats, max_chars)
+
+
+def _lead_and_list(lead: list[str], pieces: list[str], repeats: bool, max_chars: int) -> list[_Block]:
+    """Place a long lead before the list runs. A short colon lead stays on each run."""
+    blocks: list[_Block] = []
+    if lead and not repeats:
+        prose = _prose_blocks("\n".join(lead), max_chars)
+        for block in prose:
+            block.kind = "text"
+        blocks.extend(prose)
+    compare = [_without_lead(lead, piece) for piece in pieces] if repeats and lead else None
+    blocks.append(_Block(pieces, split=len(pieces) > 1, compare=compare))
+    return blocks
+
+
+def _lead_repeats(lead: list[str]) -> bool:
+    """A one-line colon lead under about 200 characters is repeated on later runs."""
+    if len(lead) != 1:
+        return False
+    line = lead[0].strip()
+    if not line or len(line) > _LEAD_LIMIT:
+        return False
+    core = line.rstrip(_CLOSERS).rstrip()
+    return core.endswith((":", ";", ":-"))
 
 
 def _without_lead(lead: list[str], piece: str) -> str:
@@ -311,7 +368,12 @@ def _without_lead(lead: list[str], piece: str) -> str:
 
 
 def _parse_list(text: str) -> tuple[list[str], list[_ListItem]]:
-    """Split a list into its lead-in and its top-level items."""
+    """Split a list into its lead-in and its top-level items.
+
+    A deeper number, such as ``1.8.`` under ``1.``, is a child of the item
+    above it. So is a marker indented further. A bare number or a letter
+    marker at the same depth starts its own item.
+    """
     lead: list[str] = []
     items: list[_ListItem] = []
     for line in text.split("\n"):
@@ -325,27 +387,63 @@ def _parse_list(text: str) -> tuple[list[str], list[_ListItem]]:
                 lead.append(line)
             continue
         indent = len(match.group(1))
-        if items and indent > items[-1].indent:
+        depth = _number_depth(match.group(2))
+        if items and (indent > items[-1].indent or (depth > items[-1].depth > 0)):
             items[-1].lines.append(line)
             continue
-        items.append(_ListItem(indent=indent, lines=[line]))
+        items.append(_ListItem(indent=indent, depth=depth, lines=[line]))
     return lead, items
 
 
-def _pack_list(lead: list[str], items: list[_ListItem]) -> list[str]:
-    """Cut one run again when its text passes about 1,000 characters."""
-    if len(items) <= 1 or _measure(lead, items) <= _SMALL_LIST_CHARS:
-        return [_format_list(lead, items)]
-    pieces: list[str] = []
+def _number_depth(marker: str) -> int:
+    """How many numeric parts a marker has. Bullets and letters are 0."""
+    match = re.fullmatch(r"(\d+(?:\.\d+)*)\.?", marker)
+    if match is None:
+        return 0
+    return match.group(1).count(".") + 1
+
+
+def _expand(items: list[_ListItem], target: int) -> list[_ListItem]:
+    """Open an item into its nested markers when the item itself exceeds ``target``."""
+    expanded: list[_ListItem] = []
+    for item in items:
+        parts = _nested_parts(item)
+        if len(parts) > 1 and _measure([], [item]) > target:
+            expanded.extend(parts)
+        else:
+            expanded.append(item)
+    return expanded
+
+
+def _nested_parts(item: _ListItem) -> list[_ListItem]:
+    """Split an item's lines at each nested marker."""
+    parts: list[list[str]] = []
+    for line in item.lines:
+        if parts and _LIST_ITEM.match(line):
+            parts.append([line])
+            continue
+        if not parts:
+            parts.append([])
+        parts[-1].append(line)
+    if len(parts) <= 1:
+        return [item]
+    return [_ListItem(indent=item.indent, depth=item.depth, lines=part) for part in parts]
+
+
+def _greedy(items: list[_ListItem], target: int) -> list[list[_ListItem]]:
+    """Pack items until the next one would pass ``target``. The lead is not included."""
+    if not items:
+        return []
+    runs: list[list[_ListItem]] = []
     current: list[_ListItem] = []
     for item in items:
-        if current and _measure(lead, current + [item]) > _SMALL_LIST_CHARS:
-            pieces.append(_format_list(lead, current))
+        if current and _measure([], current + [item]) > target:
+            runs.append(current)
             current = []
         current.append(item)
     if current:
-        pieces.append(_format_list(lead, current))
-    return pieces
+        runs.append(current)
+    return runs
 
 
 def _measure(lead: list[str], items: list[_ListItem]) -> int:
@@ -356,12 +454,6 @@ def _format_list(lead: list[str], items: list[_ListItem]) -> str:
     parts = ["\n".join(lead)] if lead else []
     parts.extend("\n".join(item.lines) for item in items)
     return "\n".join(parts)
-
-
-def _even_sizes(total: int, groups: int) -> list[int]:
-    """Divide ``total`` into ``groups`` sizes that differ by at most one."""
-    base, extra = divmod(total, groups)
-    return [base + (1 if index < extra else 0) for index in range(groups)]
 
 
 def _split_sentences(text: str) -> list[str]:
@@ -454,3 +546,136 @@ def _word_before(text: str, mark: int) -> str:
 
 def _newlines(data: str) -> str:
     return data.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def split_to_limit(text: str, kind: str, limit: int) -> list[str]:
+    """Split one passage so each piece fits ``limit``.
+
+    A list breaks between items, a table between rows, and code at blank
+    lines. Prose breaks between sentences, then words. A piece with no break
+    inside it is cut at ``limit``.
+    """
+    if not text:
+        return []
+    if len(text) <= limit:
+        return [text]
+    if kind == "list":
+        pieces = _split_list_text(text, limit)
+    elif kind == "table":
+        pieces = _split_table_text(text, limit)
+    elif kind == "code":
+        pieces = _split_code_text(text, limit)
+    else:
+        pieces = _split_prose(text, limit)
+    return _enforce_limit(pieces, limit)
+
+
+def _split_list_text(text: str, limit: int) -> list[str]:
+    lead, items = _parse_list(text)
+    if not items:
+        return _split_prose(text, limit)
+    repeats = bool(lead) and _lead_repeats(lead)
+    pieces: list[str] = []
+    budget = limit
+    if repeats:
+        budget = max(1, limit - len("\n".join(lead)) - 1)
+    elif lead:
+        lead_text = "\n".join(lead)
+        pieces.extend(_split_prose(lead_text, limit) if len(lead_text) > limit else [lead_text])
+    atoms: list[_ListItem] = []
+    for item in items:
+        atoms.extend(_nested_parts(item))
+    for run in _greedy(atoms, budget):
+        piece = _format_list(lead if repeats else [], run)
+        if len(piece) <= limit:
+            pieces.append(piece)
+            continue
+        body = "\n".join("\n".join(item.lines) for item in run)
+        pieces.extend(_split_prose(body, limit))
+    return pieces
+
+
+def _split_table_text(text: str, limit: int) -> list[str]:
+    pieces: list[str] = []
+    for piece in _split_table(text, limit):
+        if len(piece) <= limit:
+            pieces.append(piece)
+        else:
+            pieces.extend(_split_newlines(piece, limit))
+    return pieces
+
+
+def _split_code_text(text: str, limit: int) -> list[str]:
+    blocks = [block for block in re.split(r"\n\s*\n", text.strip("\n")) if block]
+    return _pack_pieces(blocks, limit, "\n\n", _split_newlines)
+
+
+def _split_prose(text: str, limit: int) -> list[str]:
+    sentences = _split_sentences(text)
+    if len(sentences) <= 1:
+        return _split_words(text, limit)
+    return _pack_pieces(sentences, limit, " ", _split_words)
+
+
+def _split_newlines(text: str, limit: int) -> list[str]:
+    return _pack_pieces(text.split("\n"), limit, "\n", _split_words)
+
+
+def _pack_pieces(parts: list[str], limit: int, sep: str, finer) -> list[str]:
+    pieces: list[str] = []
+    current: list[str] = []
+    for part in parts:
+        if not part:
+            continue
+        if current and len(sep.join([*current, part])) > limit:
+            pieces.append(sep.join(current))
+            current = []
+        if not current and len(part) > limit:
+            pieces.extend(finer(part, limit))
+            continue
+        current.append(part)
+    if current:
+        pieces.append(sep.join(current))
+    return pieces
+
+
+def _split_words(text: str, limit: int) -> list[str]:
+    pieces: list[str] = []
+    current = ""
+    for word in text.split(" "):
+        if not word and not current:
+            continue
+        candidate = word if not current else f"{current} {word}"
+        if word and len(candidate) <= limit:
+            current = candidate
+            continue
+        if current:
+            pieces.append(current)
+            current = ""
+        if not word:
+            continue
+        if len(word) <= limit:
+            current = word
+        else:
+            pieces.extend(_hard_cut(word, limit))
+    if current:
+        pieces.append(current)
+    return pieces
+
+
+def _enforce_limit(pieces: list[str], limit: int) -> list[str]:
+    fitted: list[str] = []
+    for piece in pieces:
+        if not piece:
+            continue
+        if len(piece) <= limit:
+            fitted.append(piece)
+        else:
+            fitted.extend(_hard_cut(piece, limit))
+    return fitted
+
+
+def _hard_cut(text: str, limit: int) -> list[str]:
+    if limit < 1:
+        return [text]
+    return [text[index : index + limit] for index in range(0, len(text), limit)]
