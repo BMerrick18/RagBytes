@@ -46,9 +46,9 @@ def test_resnet_reads_columns_in_order_with_a_heading_tree():
     paths = _paths(name)
     text = _text(name)
 
-    title = "Deep Residual Learning for Image Recognition"
-    assert (title, "3. Deep Residual Learning", "3.1. Residual Learning") in paths
-    assert (title, "4. Experiments", "4.2. CIFAR-10 and Analysis") in paths
+    assert {section.title for section in _sections(name)} == {"Deep Residual Learning for Image Recognition"}
+    assert ("3. Deep Residual Learning", "3.1. Residual Learning") in paths
+    assert ("4. Experiments", "4.2. CIFAR-10 and Analysis") in paths
     assert "Deeper neural networks are more difficult to train." in text
     assert "residual learning framework to ease the training" in text
     assert not any("Kaiming He" in path for path in paths)
@@ -87,9 +87,8 @@ def test_nice_guideline_joins_cross_page_text_and_drops_page_chrome():
     name = "dental checks.pdf"
     text = _text(name)
 
-    assert ("Dental checks: intervals between oral health reviews", "Recommendations") in (
-        _paths(name)
-    )
+    assert {section.title for section in _sections(name)} == {"Dental checks: intervals between oral health reviews"}
+    assert ("Recommendations",) in _paths(name)
     assert "Page " not in text
     assert not re.search(r"^1\.1\.\d+$", text, re.M)
 
@@ -148,8 +147,9 @@ def test_corpus_think_python_builds_a_chapter_tree():
     sections = _corpus("textbook - think python chapter.html")
     paths = {tuple(section.headings) for section in sections}
 
-    assert ("Chapter 3 Functions", "3.1 Function calls") in paths
-    assert ("Chapter 3 Functions", "3.14 Exercises") in paths
+    assert {section.title for section in sections} == {"Chapter 3 Functions"}
+    assert ("3.1 Function calls",) in paths
+    assert ("3.14 Exercises",) in paths
 
 
 def test_corpus_apache_license_reads_the_definitions_clause():
@@ -165,11 +165,12 @@ def test_corpus_apache_license_reads_the_definitions_clause():
 def test_corpus_bert_keeps_the_paper_title_and_authors_as_text():
     sections = _corpus("study - bert.pdf")
 
-    assert sections[0].headings == [
+    assert sections[0].title == (
         "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding"
-    ]
+    )
+    assert sections[0].headings == []
     assert "Jacob Devlin" in sections[0].data
-    assert "Jacob Devlin" not in "".join(sections[0].headings)
+    assert "Jacob Devlin" not in sections[0].title
 
 
 def test_corpus_outdoors_handbook_keeps_a_policy_tree():

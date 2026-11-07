@@ -58,9 +58,10 @@ def test_plain_text_normalizes_headings_and_paragraphs():
     sections = extract_text(raw.encode())
 
     assert _view(sections) == [
-        ("text", "Guide", None, None, "Install the package. It is small."),
-        ("list", "Guide", "Setup", None, "- Use pip\n- Then run it"),
+        ("text", None, None, None, "Install the package. It is small."),
+        ("list", "Setup", None, None, "- Use pip\n- Then run it"),
     ]
+    assert {section.title for section in sections} == {"Guide"}
     assert _ids_are_unique(sections)
 
 
@@ -127,18 +128,19 @@ def test_html_extracts_headings_table_image_and_chart():
     sections = extract_html(raw.encode())
 
     assert _view(sections) == [
-        ("text", "Report", None, None, "Intro text."),
-        ("list", "Report", "Numbers", None, "- First\n- Second"),
+        ("text", None, None, None, "Intro text."),
+        ("list", "Numbers", None, None, "- First\n- Second"),
         (
             "table",
-            "Report",
             "Numbers",
+            None,
             None,
             "| Quarter | Revenue |\n| --- | --- |\n| Q1 | 10 |",
         ),
-        ("image", "Report", "Numbers", None, "[Image: Front office]"),
-        ("chart", "Report", "Numbers", None, "[Chart: Revenue chart]"),
+        ("image", "Numbers", None, None, "[Image: Front office]"),
+        ("chart", "Numbers", None, None, "[Chart: Revenue chart]"),
     ]
+    assert {section.title for section in sections} == {"Report"}
     assert sections[3].media is None
     assert _ids_are_unique(sections)
 
@@ -167,17 +169,18 @@ def test_docx_extracts_headings_list_table_and_image():
     sections = extract_docx(_docx_bytes(document))
 
     assert _view(sections) == [
-        ("text", "Guide", None, None, "Install the package."),
-        ("list", "Guide", "Setup", None, "- Use pip.\n- Then run it."),
+        ("text", None, None, None, "Install the package."),
+        ("list", "Setup", None, None, "- Use pip.\n- Then run it."),
         (
             "table",
-            "Guide",
             "Setup",
+            None,
             None,
             "| Quarter | Revenue |\n| --- | --- |\n| Q1 | 10 |",
         ),
-        ("image", "Guide", "Setup", None, "[Image: Front office]"),
+        ("image", "Setup", None, None, "[Image: Front office]"),
     ]
+    assert {section.title for section in sections} == {"Guide"}
     image = sections[-1]
     assert image.media == picture_bytes
     assert image.media_type == "image/png"
@@ -205,10 +208,10 @@ def test_docx_treats_bold_larger_text_as_headings():
 
     sections = extract_docx(_docx_bytes(document))
 
-    assert [(section.headings, section.data) for section in sections] == [
-        (["Guide"], "Install the package."),
-        (["Guide", "Setup"], "Then run it."),
-        (["Guide", "Setup"], "This reminder stays in the paragraph."),
+    assert [(section.title, section.headings, section.data) for section in sections] == [
+        ("Guide", [], "Install the package."),
+        ("Guide", ["Setup"], "Then run it."),
+        ("Guide", ["Setup"], "This reminder stays in the paragraph."),
     ]
 
 
@@ -277,18 +280,19 @@ def test_pdf_extracts_headings_table_and_image():
     sections = extract_pdf(_pdf_bytes())
 
     assert _view(sections) == [
-        ("text", "Annual Report", None, 1, "First paragraph of the introduction."),
-        ("text", "Annual Report", None, 1, "Second paragraph stays separate."),
-        ("text", "Annual Report", "Revenue", 1, "Figures for the year follow."),
+        ("text", None, None, 1, "First paragraph of the introduction."),
+        ("text", None, None, 1, "Second paragraph stays separate."),
+        ("text", "Revenue", None, 1, "Figures for the year follow."),
         (
             "table",
-            "Annual Report",
             "Revenue",
+            None,
             1,
             "| Quarter | Revenue |\n| --- | --- |\n| Q1 | 10 |\n| Q2 | 12 |",
         ),
-        ("image", "Annual Report", "Revenue", 1, "[Image: The photo shows the office.]"),
+        ("image", "Revenue", None, 1, "[Image: The photo shows the office.]"),
     ]
+    assert {section.title for section in sections} == {"Annual Report"}
     image = next(section for section in sections if section.kind == "image")
     assert image.media is not None
     assert image.media.startswith(b"\x89PNG")
@@ -395,8 +399,9 @@ def test_html_keeps_a_title_set_just_outside_the_main_region():
     sections = extract_html(raw.encode())
 
     assert _view(sections) == [
-        ("text", "Release notes", "Fixes", None, "The crash on start is fixed."),
+        ("text", "Fixes", None, None, "The crash on start is fixed."),
     ]
+    assert sections[0].title == "Release notes"
 
 
 def test_docx_keeps_lead_in_nested_items_and_merged_cells():
@@ -423,20 +428,21 @@ def test_docx_keeps_lead_in_nested_items_and_merged_cells():
     assert _view(sections) == [
         (
             "list",
-            "Guide",
+            None,
             None,
             None,
             "Bring:\n- Use pip. the package.\n  - Then test.",
         ),
-        ("text", "Guide", "Details", None, "The body follows the outline heading."),
+        ("text", "Details", None, None, "The body follows the outline heading."),
         (
             "table",
-            "Guide",
             "Details",
+            None,
             None,
             "| Year | Q1 |\n| --- | --- |\n|  | Q2 |",
         ),
     ]
+    assert {section.title for section in sections} == {"Guide"}
     assert next(section for section in sections if section.kind == "table").data.count("Year") == 1
 
 
@@ -550,13 +556,14 @@ def test_heading_path_keeps_the_middle_level():
     word = extract_docx(_docx_bytes(document))
 
     for sections in (markdown, html, word):
-        assert [(section.headings, section.data) for section in sections] == [
-            (["Guide", "Setup", "Windows"], "Body under windows."),
-            (["Guide", "Run"], "After."),
+        assert [(section.title, section.headings, section.data) for section in sections] == [
+            ("Guide", ["Setup", "Windows"], "Body under windows."),
+            ("Guide", ["Run"], "After."),
         ]
-        assert sections[0].heading == "Guide"
+        assert sections[0].heading == "Setup"
         assert sections[0].subheading == "Windows"
-        assert sections[1].subheading == "Run"
+        assert sections[1].heading == "Run"
+        assert sections[1].subheading is None
 
 
 def test_outline_numbers_are_headings_and_a_short_underline_is_not():
@@ -583,11 +590,12 @@ def test_outline_numbers_are_headings_and_a_short_underline_is_not():
 
     assert _view(sections) == [
         ("list", None, None, None, "1. Item stays a list"),
-        ("text", "Setup", None, None, "Body."),
-        ("text", "Setup", "Windows", None, "More."),
-        ("text", "Setup", "Windows", None, "Guide"),
-        ("text", "Setup", "Windows", None, "Still a paragraph."),
+        ("text", None, None, None, "Body."),
+        ("text", "Windows", None, None, "More."),
+        ("text", "Windows", None, None, "Guide"),
+        ("text", "Windows", None, None, "Still a paragraph."),
     ]
+    assert {section.title for section in sections} == {"Setup"}
 
 
 def test_docx_finds_inherited_same_size_and_capital_headings():
@@ -648,12 +656,13 @@ def test_docx_finds_inherited_same_size_and_capital_headings():
     contents.add_paragraph("After the contents.")
 
     assert _view(extract_docx(_docx_bytes(document))) == [
-        ("text", "Guide", "Setup", None, "Under the topic."),
+        ("text", "Setup", None, None, "Under the topic."),
     ]
     assert _view(extract_docx(_docx_bytes(same_size))) == [
-        ("text", "Guide", "Setup", None, "Then run it."),
-        ("text", "Guide", "Setup", None, "Note"),
+        ("text", "Setup", None, None, "Then run it."),
+        ("text", "Setup", None, None, "Note"),
     ]
+    assert extract_docx(_docx_bytes(same_size))[0].title == "Guide"
     assert _view(extract_docx(_docx_bytes(numbered))) == [
         ("text", "2 Setup", None, None, "Under the numbered title."),
     ]
@@ -693,9 +702,10 @@ def test_pdf_ranks_heading_sizes_and_reads_outline_entries():
     ranked = extract_pdf(_ranked_heading_pdf_bytes())
 
     assert _view(ranked) == [
-        ("text", "Guide", None, 1, "Intro paragraph."),
-        ("text", "Guide", "Setup", 1, "Then run it."),
+        ("text", None, None, 1, "Intro paragraph."),
+        ("text", "Setup", None, 1, "Then run it."),
     ]
+    assert {section.title for section in ranked} == {"Guide"}
 
     wrapped = extract_pdf(_wrapped_heading_pdf_bytes())
 
@@ -943,8 +953,9 @@ def test_pdf_reads_a_framed_datasheet_page_as_prose_and_one_table():
         "| GRM | 155 | 0.6 to 0.8 |\n"
         "| GRM | 18 | 0.6 to 1.0 |"
     )
-    assert table.headings == ["Soldering and Mounting", "1. Mounting Position", "1-1. Land Design"]
-    assert table.heading == "Soldering and Mounting"
+    assert table.title == "Soldering and Mounting"
+    assert table.headings == ["1. Mounting Position", "1-1. Land Design"]
+    assert table.heading == "1. Mounting Position"
     assert table.subheading == "1-1. Land Design"
 
     texts = [section.data for section in sections if section.kind == "text"]

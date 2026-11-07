@@ -27,7 +27,9 @@ class Section(BaseModel):
 
     ``headings`` is the heading path, outer title first. The shallowest
     heading level in the file is level 1. ``heading`` is that outer title.
-    ``subheading`` is the nearest deeper title.
+    ``subheading`` is the nearest deeper title. ``title`` is the document's
+    title, such as the name at the top of a CV: a single outermost heading
+    that every later heading sits under. It is not part of ``headings``.
     ``complexity`` is ``simple`` when the section can be chunked, and
     ``complex`` when it needs further processing first.
     """
@@ -36,6 +38,7 @@ class Section(BaseModel):
     file_id: str = ""
     index: int = 0
     kind: SectionKind
+    title: str | None = None
     headings: list[str] = Field(default_factory=list)
     heading: str | None = None
     subheading: str | None = None
@@ -70,6 +73,10 @@ class ChunkMetadata(BaseModel):
     filename: str
     file_id: str
     chunk_number: int = Field(description="Place of this chunk in the response, starting at 0.")
+    title: str | None = Field(
+        default=None,
+        description="The document's title, such as the name at the top of a CV, when one heading sits above all the others.",
+    )
     headings: list[str] = Field(default_factory=list)
     heading: str | None = None
     subheading: str | None = None
@@ -84,8 +91,8 @@ class Chunk(BaseModel):
 
     ``chunk_id`` identifies this chunk. A section split into several chunks
     gets a new id on each one. ``metadata`` is written before ``content``.
-    ``embed_text`` is the string to embed: the heading path, a blank line,
-    then the chunk's text, or its label when the chunk is an image or a
+    ``embed_text`` is the string to embed: the document title and heading
+    path, a blank line, then the chunk's text, or its label when the chunk is an image or a
     complex region. ``content`` is the one value for this chunk: the text, or
     the original bytes of an image or complex region. ``metadata.format``
     says which it is. Bytes are base64 in the response.

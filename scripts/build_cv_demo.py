@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 
 from ragbytes.chunk import simple, structured
+from ragbytes.chunk.assemble import titled_path
 from ragbytes.chunk.registry import CHUNKERS
 from ragbytes.extract.complex import prepare_for_chunking
 from ragbytes.extract.registry import get_extractor
@@ -81,10 +82,10 @@ def _basic_plan(sections: list[Section], position: dict[int, int]) -> list[dict]
                     "text": section.data.strip(),
                 }
             )
-            previous = list(section.headings)
+            previous = simple.window_path(section)
             continue
         pending.append((section, simple.section_window_text(section, previous)))
-        previous = list(section.headings)
+        previous = simple.window_path(section)
     flush()
     return records
 
@@ -139,14 +140,14 @@ def build_demo() -> dict:
     sections = prepare_for_chunking(get_extractor(SAMPLE.suffix)(SAMPLE.read_bytes()))
     position = {section.index: i for i, section in enumerate(sections)}
     demo = {
-        "title": sections[0].headings[0],
+        "title": sections[0].title or sections[0].headings[0],
         "limits": {
             "chunk_size": simple.CHUNK_SIZE,
             "structured_chunk_size": structured.CHUNK_SIZE,
         },
         "sections": [
             {
-                "heading": section.headings[-1],
+                "heading": section.headings[-1] if section.headings else section.title,
                 "kind": section.kind,
                 "chars": len(section.data.strip()),
                 "preview": _preview(section.data),
@@ -170,7 +171,7 @@ def build_demo() -> dict:
                 {
                     "sections": item["sections"],
                     "chars": len(chunk.content) if isinstance(chunk.content, str) else item["chars"],
-                    "headings": chunk.metadata.headings,
+                    "headings": titled_path(chunk.metadata.title, chunk.metadata.headings),
                     "text": chunk.content if isinstance(chunk.content, str) else item["text"],
                     "steps": [{"sections": item["sections"], "chars": item["chars"], "reason": item["reason"]}],
                 }
@@ -180,7 +181,13 @@ def build_demo() -> dict:
         chunks = []
         for chunk in produced:
             covered = [i for i, section in enumerate(sections) if section.data.strip() in chunk.content]
-            chunks.append({"sections": covered, "chars": len(chunk.embed_text), "headings": chunk.metadata.headings})
+            chunks.append(
+                {
+                    "sections": covered,
+                    "chars": len(chunk.embed_text),
+                    "headings": titled_path(chunk.metadata.title, chunk.metadata.headings),
+                }
+            )
         missing = set(range(len(sections))) - {i for chunk in chunks for i in chunk["sections"]}
         if missing:
             raise ValueError(f"{name}: sections {sorted(missing)} aren't wholly inside any chunk")

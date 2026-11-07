@@ -3,6 +3,7 @@
 import re
 from dataclasses import dataclass
 
+from ragbytes.chunk.assemble import titled_path
 from ragbytes.chunk.simple import prepared_sections
 from ragbytes.schemas import Section, SectionKind
 
@@ -79,8 +80,8 @@ class PreparedSentence:
     """One passage, still under its heading path.
 
     ``text`` is a small paragraph, a sentence from a very long paragraph, or a
-    block such as a list or a table. ``embed_text`` is the heading path, a
-    blank line, then ``text``, as the finished chunk will carry it. A document
+    block such as a list or a table. ``embed_text`` is the document title and
+    heading path, a blank line, then ``text``, as the finished chunk will carry it. A document
     with no headings uses ``text`` alone. Neither pass embeds ``embed_text``:
     every passage under one heading shares the path, so it would only pull the
     scores together. ``heading`` and ``subheading`` are the titles from the
@@ -109,6 +110,7 @@ class PreparedSentence:
     order: int
     group: int | None
     compare_text: str | None = None
+    title: str | None = None
 
     @property
     def vector_text(self) -> str:
@@ -208,7 +210,7 @@ def _from_section(section: Section, text: str, order: int, group: int | None) ->
     headings = list(section.headings)
     return PreparedSentence(
         text=text,
-        embed_text=_embed_text(headings, text),
+        embed_text=_embed_text(titled_path(section.title, headings), text),
         headings=headings,
         heading=section.heading,
         subheading=section.subheading,
@@ -219,6 +221,7 @@ def _from_section(section: Section, text: str, order: int, group: int | None) ->
         kind=section.kind,
         order=order,
         group=group,
+        title=section.title,
     )
 
 

@@ -6,6 +6,8 @@ export interface ChunkMetadata {
   filename: string;
   file_id: string;
   chunk_number: number;
+  /** The document's title, such as the name at the top of a CV. It is not repeated in `headings`. */
+  title?: string | null;
   headings: string[];
   heading: string | null;
   subheading: string | null;

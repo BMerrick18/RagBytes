@@ -36,6 +36,7 @@ def sections_for_chunking(sections: list[Section], *, filename: str, exact: bool
                     filename=filename,
                     file_id=section.file_id,
                     chunk_number=len(records),
+                    title=section.title,
                     headings=list(section.headings),
                     heading=section.heading,
                     subheading=section.subheading,
@@ -65,14 +66,19 @@ def _media_is_text(media_type: str | None) -> bool:
 
 
 def _embed_text(section: Section, *, exact: bool = False) -> str:
-    """Return the heading path and the section's text or label, for embedding."""
+    """Return the title and heading path, then the section's text or label, for embedding."""
     text = _plain(section, exact=exact)
-    path = " > ".join(section.headings)
+    path = " > ".join(titled_path(section.title, section.headings))
     if not path:
         return text
     if exact and (text == path or text.startswith(f"{path}\n")):
         return text
     return f"{path}\n\n{text}"
+
+
+def titled_path(title: str | None, headings: list[str]) -> list[str]:
+    """The document title, when there is one, followed by the heading path."""
+    return [title, *headings] if title else list(headings)
 
 
 def _offset_text(section: Section, content: str | bytes, *, exact: bool = False) -> str:
