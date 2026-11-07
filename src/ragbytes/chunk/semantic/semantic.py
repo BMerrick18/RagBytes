@@ -19,23 +19,26 @@ def chunk_semantic(
     list, under every heading, as one list. Each heading is then cut from its
     own slice of those vectors, and the split pieces are joined back into
     sections. A heading under the style's minimum size then joins the sibling
-    heading beside it. The second pass embeds those sections together with
+    heading beside it, when the two share a heading above them that can label
+    the chunk. The second pass embeds those sections together with
     the short passages, tables, and figures, again as one list. Each heading,
     or group of joined headings, is cut from its own slice. A sharp drop
     between the passages either side of a join starts a new chunk. Where the
     similarity stays close, several passages share one chunk. A chunk grows
     to the style's maximum before it is split at its weakest join, and a
     chunk under the minimum joins its closer neighbour unless both are
-    unrelated. A short label or date always joins a neighbour. A heading
-    change between two larger headings always starts a new chunk.
+    unrelated. A short label or date always joins a neighbour, and so does a
+    text run under half the minimum, since a lone sentence scores low against
+    its paragraph yet cannot stand as a chunk. A heading change between two
+    larger headings always starts a new chunk.
 
     Each pass sets its own floor for unrelated neighbours from that pass's
     scores, so a document whose passages score low as a rule is not cut at
     every join. The embedder sees passage text, without the heading path. The
     path is written onto each finished chunk for a later search embedding. A
     chunk that spans joined headings takes the path they share, with each
-    heading's own title written above its text. A heading with fewer than two
-    passages to compare is left out of that pass.
+    heading's own title written above its text and a blank line between. A
+    heading with fewer than two passages to compare is left out of that pass.
     """
     originals = {section.id: section for section in sections}
     scopes = prepare_sentences(sections)

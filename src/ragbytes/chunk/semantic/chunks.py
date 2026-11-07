@@ -40,8 +40,9 @@ def chunk_sections(
     is one image, chart, or complex region keeps that region's bytes. A run of
     several passages joins their text with a blank line. A run whose passages
     come from more than one heading takes the ``umbrella`` path they share,
-    and each heading's own titles below that path are written on the line
-    above its first passage.
+    and each heading's own titles below that path are written above its first
+    passage, one title per line and then a blank line, the way the basic tier
+    writes a heading into its windows.
     """
     if not passages:
         return []
@@ -182,7 +183,7 @@ def _shared_section(part: list[PreparedSentence], umbrella: Umbrella, index: int
     previous: list[str] | None = None
     for passage in part:
         titles = passage.headings[len(umbrella.headings) :] if passage.headings != previous else []
-        texts.append("\n".join([*titles, passage.text]))
+        texts.append(_titled(titles, passage.text))
         previous = passage.headings
     return Section(
         file_id=first.file_id,
@@ -195,6 +196,13 @@ def _shared_section(part: list[PreparedSentence], umbrella: Umbrella, index: int
         page=first.page,
         data="\n\n".join(texts),
     )
+
+
+def _titled(titles: list[str], text: str) -> str:
+    """Write the titles that start here above the text, one per line, then a blank line."""
+    if not titles:
+        return text
+    return "\n".join(titles) + "\n\n" + text
 
 
 def _join_chunk(part: list[PreparedSentence]) -> str:

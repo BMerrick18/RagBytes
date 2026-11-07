@@ -303,6 +303,93 @@ def test_pdf_bold_title_case_heads_a_section_and_a_sentence_does_not():
     ]
 
 
+def test_pdf_diagram_labels_and_a_table_caption_are_not_headings():
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(72, 720, "Parity Disk")
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(72, 700, "Each stripe keeps one parity block beside the data blocks it covers.")
+    pdf.drawString(72, 686, "The parity disk is written on every update to any data disk.")
+    pdf.setFont("Helvetica", 11)
+    pdf.drawString(72, 650, "Cp")
+    pdf.drawString(72, 620, "Dp")
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.drawString(72, 580, "Table 3: Capacity")
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(72, 566, "Capacity falls by one disk in every stripe group.")
+    pdf.save()
+
+    sections = extract_pdf(buffer.getvalue())
+
+    assert {tuple(section.headings) for section in sections} == {("Parity Disk",)}
+    text = "\n".join(section.data for section in sections)
+    assert "Cp" in text and "Dp" in text
+    assert "Table 3: Capacity" in text
+
+
+def test_pdf_a_cover_title_above_the_bookmarked_headings_is_the_document_title():
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+    pdf.setFont("Helvetica-Bold", 26)
+    pdf.drawString(72, 720, "Emergency Care Guide")
+    pdf.bookmarkPage("prioritising")
+    pdf.addOutlineEntry("Prioritising Calls", "prioritising", level=0)
+    pdf.setFont("Helvetica", 18)
+    pdf.drawString(72, 660, "Prioritising Calls")
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(72, 640, "Sort each call into one of three categories of care.")
+    pdf.showPage()
+    pdf.bookmarkPage("categories")
+    pdf.addOutlineEntry("Categories of Care", "categories", level=0)
+    pdf.setFont("Helvetica-Bold", 17)
+    pdf.drawString(72, 720, "Categories of Care")
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(72, 680, "Urgent Care")
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(72, 660, "Severe pain that self care does not control.")
+    pdf.save()
+
+    sections = extract_pdf(buffer.getvalue())
+
+    assert {section.title for section in sections} == {"Emergency Care Guide"}
+    assert [section.headings for section in sections] == [
+        ["Prioritising Calls"],
+        ["Categories of Care", "Urgent Care"],
+    ]
+
+
+def test_markdown_readme_masthead_names_the_document_and_drops_its_badges():
+    raw = """<p align="center">
+  <a href="https://fast.example"><img src="logo.png" alt="FastAPI"></a>
+</p>
+<p align="center">
+    <em>FastAPI framework, high performance</em>
+</p>
+<p align="center">
+<a href="https://ci.example"><img src="test.svg" alt="Test"></a>
+<a href="https://cov.example"><img src="coverage.svg" alt="Coverage"></a>
+</p>
+
+FastAPI is a web framework.
+
+## Sponsors
+
+<a href="https://one.example" title="Sponsor One"><img src="one.png"></a>
+<a href="https://two.example" title="Sponsor Two"><img src="two.png"></a>
+"""
+
+    sections = extract_markdown(raw.encode())
+
+    assert {section.title for section in sections} == {"FastAPI"}
+    assert _view(sections) == [
+        ("text", [], "FastAPI framework, high performance"),
+        ("text", [], "FastAPI is a web framework."),
+        ("image", ["Sponsors"], "[Image: Sponsor One]"),
+        ("image", ["Sponsors"], "[Image: Sponsor Two]"),
+    ]
+
+
 def test_plain_text_reads_gutenberg_caps_and_numbered_titles():
     raw = (
         "*** START OF THE PROJECT GUTENBERG EBOOK STYLE ***\n"

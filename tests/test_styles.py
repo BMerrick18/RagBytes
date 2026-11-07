@@ -74,13 +74,57 @@ def test_a_label_at_the_end_joins_the_run_before_it():
     assert attach_fragments(passages, [1]) == []
 
 
-def test_a_short_sentence_is_not_a_fragment():
-    passages = [_passage("Warm the lamp.", 0), _passage("The tariff changed the quay.", 1)]
+_LAMP = (
+    "Warm the lamp before the crew arrives, then check the wick and the glass "
+    "so the light carries across the water to the far pier."
+)
+_TARIFF = (
+    "The tariff changed the quay fees for every vessel this season, and the "
+    "harbour office posted the new rates on the gate by the lock."
+)
+
+
+def test_a_sentence_above_the_tiny_size_is_not_a_fragment():
+    passages = [_passage(_LAMP, 0), _passage(_TARIFF, 1)]
+
+    assert attach_fragments(passages, [1]) == [1]
+
+
+def test_a_tiny_sentence_joins_the_text_before_it_whatever_its_score():
+    passages = [_passage(_LAMP, 0), _passage("Access control is covered in a separate memo.", 1)]
+
+    assert attach_fragments(passages, [1]) == []
+
+
+def test_a_tiny_sentence_at_the_start_joins_the_text_after_it():
+    passages = [_passage("Warm the lamp.", 0), _passage(_TARIFF, 1)]
+
+    assert attach_fragments(passages, [1]) == []
+
+
+def test_a_tiny_sentence_prefers_the_run_before_it():
+    passages = [_passage(_LAMP, 0), _passage("Warm the lamp.", 1), _passage(_TARIFF, 2)]
+
+    assert attach_fragments(passages, [1, 2]) == [2]
+
+
+def test_a_tiny_sentence_does_not_join_a_table_or_a_figure():
+    passages = [
+        _passage("| A | B |", 0, kind="table"),
+        _passage("Warm the lamp.", 1),
+        _passage("[Image: Wiring]", 2, kind="image"),
+    ]
+
+    assert attach_fragments(passages, [1, 2]) == [1, 2]
+
+
+def test_a_tiny_sentence_stays_alone_when_the_join_would_pass_the_maximum():
+    passages = [_passage("x" * 1990 + ".", 0), _passage("Warm the lamp.", 1)]
 
     assert attach_fragments(passages, [1]) == [1]
 
 
 def test_a_short_table_is_not_a_fragment():
-    passages = [_passage("| A | B |", 0, kind="table"), _passage("The tariff changed the quay.", 1)]
+    passages = [_passage("| A | B |", 0, kind="table"), _passage(_TARIFF, 1)]
 
     assert attach_fragments(passages, [1]) == [1]
