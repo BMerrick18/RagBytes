@@ -275,9 +275,9 @@ def test_pdf_author_names_above_an_email_are_not_a_heading():
 
     sections = extract_pdf(buffer.getvalue())
 
-    assert [(section.headings, section.data) for section in sections] == [
-        (["Pots Are All You Need"], "Jane Doe John Smith {jane, john}@example.com"),
-        (["Pots Are All You Need", "Abstract"], "We study pots of coffee and tea."),
+    assert [(section.title, section.headings, section.data) for section in sections] == [
+        ("Pots Are All You Need", [], "Jane Doe John Smith {jane, john}@example.com"),
+        ("Pots Are All You Need", ["Abstract"], "We study pots of coffee and tea."),
     ]
 
 
@@ -323,9 +323,10 @@ def test_plain_text_reads_gutenberg_caps_and_numbered_titles():
     sections = extract_text(raw.encode())
 
     assert _view(sections) == [
-        ("text", ["THE ELEMENTS OF STYLE"], "Form the possessive as follows."),
-        ("text", ["THE ELEMENTS OF STYLE", "Definitions"], "License means the terms."),
+        ("text", [], "Form the possessive as follows."),
+        ("text", ["Definitions"], "License means the terms."),
     ]
+    assert {section.title for section in sections} == {"THE ELEMENTS OF STYLE"}
 
 
 def test_pdf_moves_a_word_whose_box_misses_its_baseline():

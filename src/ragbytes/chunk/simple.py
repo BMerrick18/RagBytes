@@ -1,6 +1,6 @@
 """Split a document into fixed-size character windows."""
 
-from ragbytes.chunk.assemble import sections_for_chunking
+from ragbytes.chunk.assemble import sections_for_chunking, titled_path
 from ragbytes.schemas import Chunk, Section
 
 CHUNK_SIZE = 500
@@ -57,10 +57,10 @@ def chunk_simple(sections: list[Section], *, filename: str) -> list[Chunk]:
         if section.kind in WHOLE_KINDS:
             flush()
             pieces.append(section)
-            previous = list(section.headings)
+            previous = window_path(section)
             continue
         pending.append((section, section_window_text(section, previous)))
-        previous = list(section.headings)
+        previous = window_path(section)
     flush()
     return sections_for_chunking(pieces, filename=filename, exact=True)
 
@@ -113,15 +113,21 @@ def _label_text(section: Section) -> str:
 def section_window_text(section: Section, previous: list[str] | None) -> str:
     """Return this section's text, with heading lines for titles that start here.
 
-    A heading already written for an earlier section is not repeated. New
-    titles are one per line, then a blank line, then the section text.
+    ``previous`` is the earlier section's ``window_path``. A heading already
+    written for an earlier section is not repeated. New titles are one per
+    line, then a blank line, then the section text.
     """
     text = section.data.strip()
-    fresh = _fresh_headings(section.headings, previous)
+    fresh = _fresh_headings(window_path(section), previous)
     if not fresh:
         return text
     block = "\n".join(fresh)
     return f"{block}\n\n{text}" if text else block
+
+
+def window_path(section: Section) -> list[str]:
+    """The document title and heading path that are written into the windows."""
+    return titled_path(section.title, section.headings)
 
 
 def _fresh_headings(headings: list[str], previous: list[str] | None) -> list[str]:

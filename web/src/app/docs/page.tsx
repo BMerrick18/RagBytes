@@ -22,9 +22,10 @@ const EXAMPLE_RESPONSE = `{
         "filename": "guide.md",
         "file_id": "6f1c…",
         "chunk_number": 0,
-        "headings": ["Guide", "Install"],
-        "heading": "Guide",
-        "subheading": "Install",
+        "title": "Guide",
+        "headings": ["Install"],
+        "heading": "Install",
+        "subheading": null,
         "page": null,
         "format": "text",
         "media_type": null,
@@ -125,6 +126,11 @@ async function ApiDocs() {
           <li>
             <Code>embed_text</Code> is the heading path, a blank line, then the chunk&apos;s text. The heading path
             tells the embedding model where the chunk sits in the document.
+          </li>
+          <li>
+            <Code>metadata.title</Code> is the document&apos;s title when one heading sits above all the others, such
+            as the name at the top of a CV. It starts the path in <Code>embed_text</Code> but is left out of{" "}
+            <Code>headings</Code>, so <Code>heading</Code> is the section itself, such as Experience.
           </li>
           <li>
             <Code>content</Code> is the chunk&apos;s text, or base64 bytes when <Code>metadata.media_type</Code> is

@@ -159,10 +159,17 @@ def compose_inline(
 def assign_indexes(sections: list[Section]) -> list[Section]:
     """Record each section's place in the file. The first section is 0.
 
-    The shallowest heading level in the file becomes level 1, so a document
-    that starts at a deeper heading still fills ``heading``.
+    One outermost heading that every other heading sits under, such as the
+    name at the top of a CV, is the document's title. It moves out of the
+    heading path into ``title``, so the headings below it become the outer
+    ones. The shallowest heading level left in the file becomes level 1, so
+    a document that starts at a deeper heading still fills ``heading``.
     """
-    _promote_outer_headings(sections)
+    paths = _take_heading_levels(sections)
+    title = _document_title(sections, paths)
+    if title is not None:
+        paths = _without_title(sections, paths, title)
+    _promote_outer_headings(sections, paths, refresh=title is not None)
     for index, section in enumerate(sections):
         section.index = index
     return sections
@@ -183,21 +190,65 @@ def looks_like_heading(text: str) -> bool:
     return sum(1 for char in text if char.isalpha()) >= 2
 
 
-def _promote_outer_headings(sections: list[Section]) -> None:
-    """Shift heading levels so the file's shallowest title is level 1."""
+def _take_heading_levels(sections: list[Section]) -> list[list[int] | None]:
     paths: list[list[int] | None] = []
     for section in sections:
         paths.append(getattr(section, "_heading_levels", None))
         if hasattr(section, "_heading_levels"):
             del section._heading_levels
+    return paths
+
+
+def _document_title(sections: list[Section], paths: list[list[int] | None]) -> str | None:
+    """Return the one outermost heading when every heading in the file sits under it.
+
+    Text before that heading may have no headings at all. A file whose only
+    heading is that title has nothing to lift out from under it, so it keeps
+    its heading.
+    """
+    top: tuple[int, str] | None = None
+    nested = False
+    for section, path in zip(sections, paths, strict=True):
+        if not section.headings:
+            continue
+        if not path or len(path) != len(section.headings):
+            return None
+        outer = (path[0], section.headings[0])
+        if top is None:
+            top = outer
+        elif outer != top:
+            return None
+        nested = nested or len(path) > 1
+    if top is None or not nested:
+        return None
+    return top[1]
+
+
+def _without_title(
+    sections: list[Section], paths: list[list[int] | None], title: str
+) -> list[list[int] | None]:
+    trimmed: list[list[int] | None] = []
+    for section, path in zip(sections, paths, strict=True):
+        section.title = title
+        if section.headings and path:
+            section.headings = section.headings[1:]
+            path = path[1:]
+        trimmed.append(path)
+    return trimmed
+
+
+def _promote_outer_headings(sections: list[Section], paths: list[list[int] | None], *, refresh: bool) -> None:
+    """Shift heading levels so the file's shallowest title is level 1.
+
+    ``refresh`` sets ``heading`` and ``subheading`` again even when no shift
+    is needed, after the title has left the paths.
+    """
     found = [level for path in paths if path for level in path]
-    if not found:
-        return
-    shift = min(found) - 1
-    if shift <= 0:
+    shift = min(found) - 1 if found else 0
+    if shift <= 0 and not refresh:
         return
     for section, path in zip(sections, paths, strict=True):
-        if not path or len(path) != len(section.headings):
+        if path is None or len(path) != len(section.headings):
             continue
         heading: str | None = None
         deeper: list[str] = []

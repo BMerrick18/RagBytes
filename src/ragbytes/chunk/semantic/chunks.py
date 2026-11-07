@@ -1,6 +1,6 @@
 """Turn cut indexes into sections, then into chunk records."""
 
-from ragbytes.chunk.assemble import sections_for_chunking
+from ragbytes.chunk.assemble import sections_for_chunking, titled_path
 from ragbytes.chunk.semantic.embed_prep import HeadingPassages, PreparedSentence, _LIST_ITEM, _embed_text
 from ragbytes.chunk.semantic.siblings import Umbrella
 from ragbytes.schemas import Chunk, Section, SectionKind
@@ -92,7 +92,7 @@ def _joined(part: list[PreparedSentence]) -> PreparedSentence:
     text = _join_group(part)
     return PreparedSentence(
         text=text,
-        embed_text=_embed_text(first.headings, text),
+        embed_text=_embed_text(titled_path(first.title, first.headings), text),
         headings=list(first.headings),
         heading=first.heading,
         subheading=first.subheading,
@@ -104,6 +104,7 @@ def _joined(part: list[PreparedSentence]) -> PreparedSentence:
         order=first.order,
         group=None,
         compare_text=_join_compare(part),
+        title=first.title,
     )
 
 
@@ -160,6 +161,7 @@ def _section(part: list[PreparedSentence], originals: dict[str, Section], index:
         file_id=first.file_id,
         index=index,
         kind=kind,
+        title=first.title,
         headings=list(first.headings),
         heading=first.heading,
         subheading=first.subheading,
@@ -186,6 +188,7 @@ def _shared_section(part: list[PreparedSentence], umbrella: Umbrella, index: int
         file_id=first.file_id,
         index=index,
         kind=kind,
+        title=first.title,
         headings=list(umbrella.headings),
         heading=umbrella.heading,
         subheading=umbrella.subheading,

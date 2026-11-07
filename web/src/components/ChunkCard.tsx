@@ -25,7 +25,8 @@ export function ChunkCard({ chunk }: { chunk: Chunk }) {
   const { metadata } = chunk;
   const binary = isBinaryMedia(chunk);
   const showEmbed = view === "embed" || binary;
-  const path = metadata.headings.join(" > ");
+  const trail = metadata.title ? [metadata.title, ...metadata.headings] : metadata.headings;
+  const path = trail.join(" > ");
   const pathPrefix = `${path}\n\n`;
   const headed = showEmbed && path !== "" && chunk.embed_text.startsWith(pathPrefix);
   const text = !showEmbed ? chunk.content : headed ? chunk.embed_text.slice(pathPrefix.length) : chunk.embed_text;
@@ -74,9 +75,9 @@ export function ChunkCard({ chunk }: { chunk: Chunk }) {
         </div>
       </header>
 
-      {metadata.headings.length > 0 && !headed && (
+      {trail.length > 0 && !headed && (
         <nav aria-label="Heading path" className="mt-2 flex flex-wrap items-center gap-1 text-sm text-zinc-300">
-          {metadata.headings.map((heading, index) => (
+          {trail.map((heading, index) => (
             <span key={index} className="flex items-center gap-1">
               {index > 0 && <span className="text-zinc-600">›</span>}
               <span className="max-w-[28ch] truncate" title={heading}>
