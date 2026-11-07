@@ -1,5 +1,5 @@
 from ragbytes.chunk.semantic.semantic import chunk_semantic
-from ragbytes.chunk.semantic.styles import resolve_style
+from ragbytes.chunk.semantic.styles import BALANCED, resolve_style
 from ragbytes.schemas import Section
 
 
@@ -25,7 +25,7 @@ def _section(
         index=index,
         kind=kind,
         headings=headings,
-        heading=headings[0],
+        heading=headings[0] if headings else None,
         subheading=headings[-1] if len(headings) > 1 else None,
         data=data,
         media=media,
@@ -230,12 +230,28 @@ def test_a_parents_opening_text_waits_for_its_child_rather_than_joining_the_head
     assert [chunk.metadata.headings for chunk in chunks] == [["Guide", "Survey"], ["Guide", "Setup"]]
 
 
+def _subject_change(same: str, changed: str) -> str:
+    """A paragraph over the maximum whose later sentences change subject."""
+    same = same.strip()
+    changed = changed.strip()
+    count = 1
+    text = same
+    while count < 80:
+        text = " ".join([same] * count + [changed] * 8)
+        unchanged = " ".join([same] * count)
+        # Leave room for the size check, which counts a blank line between sentences.
+        if len(text) > BALANCED.max_chars and len(unchanged) <= BALANCED.max_chars - 80:
+            return text
+        count += 1
+    return text
+
+
 def test_a_long_paragraph_is_split_where_its_sentences_change_subject():
     same = "The crew walked the pier and wrote down the reading. "
     changed = "The tariff closed the quay and the crew went home. "
-    paragraph = same * 15 + changed * 8
+    paragraph = _subject_change(same, changed)
     embedder = _Embedder()
-    section = _section(0, "text", paragraph.strip(), ["Guide", "North Pier"])
+    section = _section(0, "text", paragraph, ["Guide", "North Pier"])
 
     chunks = chunk_semantic([section], filename="notes.txt", embedder=embedder)
 
@@ -254,8 +270,8 @@ def test_both_passes_embed_every_heading_in_one_call():
     south = "Beta kept the lamp lit and wrote down the reading. "
     embedder = _Embedder()
     sections = [
-        _section(0, "text", (same * 15 + changed * 8).strip(), ["Guide", "North"]),
-        _section(1, "text", (south * 15 + changed * 8).strip(), ["Guide", "South"]),
+        _section(0, "text", _subject_change(same, changed), ["Guide", "North"]),
+        _section(1, "text", _subject_change(south, changed), ["Guide", "South"]),
     ]
 
     chunks = chunk_semantic(sections, filename="notes.txt", embedder=embedder)
@@ -312,3 +328,67 @@ def test_an_image_keeps_its_bytes_when_it_is_its_own_chunk():
     assert [chunk.metadata.format for chunk in chunks] == ["text", "image"]
     assert chunks[1].content == picture
     assert chunks[1].embed_text == "Guide > Setup\n\n[Image: Wiring]"
+
+
+def test_a_preamble_under_the_tiny_size_is_not_its_own_chunk():
+    title = "Glentworth Parish Council IT Policy"
+    assert len(title) < BALANCED.tiny_chars
+    embedder = _Embedder()
+    sections = [
+        _section(0, "text", title, []),
+        _section(1, "text", _LAMP, ["Access"]),
+    ]
+
+    chunks = chunk_semantic(sections, filename="policy.docx", embedder=embedder)
+
+    assert len(chunks) == 1
+    assert chunks[0].content.startswith(f"{title}\n\n")
+    assert _LAMP in chunks[0].content
+    assert chunks[0].metadata.headings == ["Access"]
+
+
+def test_a_list_that_fits_the_maximum_stays_one_chunk():
+    items = [f"{index} The panel records the complaint and the remedy sought." for index in range(1, 12)]
+    data = "The committee considers the following:\n" + "\n".join(items)
+    assert len(items) > 8
+    assert len(data) <= BALANCED.max_chars
+    embedder = _Embedder()
+
+    chunks = chunk_semantic([_section(0, "list", data, ["Complaints"])], filename="complaints.docx", embedder=embedder)
+
+    assert len(chunks) == 1
+    assert chunks[0].content.count("The committee considers the following:") == 1
+    assert "11 The panel records" in chunks[0].content
+
+
+def test_a_long_list_lead_is_not_repeated_when_the_runs_merge():
+    lead = ("The crew checks each item before leaving the yard. " * 6).strip()
+    assert len(lead) > 200
+    data = f"{lead}\n- Lamps\n- Meters"
+    embedder = _Embedder()
+
+    chunks = chunk_semantic([_section(0, "list", data, ["Guide"])], filename="kit.txt", embedder=embedder)
+
+    assert len(chunks) == 1
+    assert chunks[0].content.count(lead) == 1
+    assert "- Lamps" in chunks[0].content
+
+
+def test_one_oversized_passage_is_split_to_the_maximum():
+    prose = ("word " * 600).strip()
+    assert len(prose) > BALANCED.max_chars
+    embedder = _Embedder()
+
+    chunks = chunk_semantic([_section(0, "text", prose, ["Guide"])], filename="notes.txt", embedder=embedder)
+
+    assert len(chunks) >= 2
+    assert all(isinstance(chunk.content, str) and len(chunk.content) <= BALANCED.max_chars for chunk in chunks)
+
+
+def test_numbered_clauses_keep_their_newlines_in_the_chunk():
+    data = "6 During the investigation.\n7 While on suspension the employee stays home."
+    embedder = _Embedder()
+
+    chunks = chunk_semantic([_section(0, "text", data, ["Discipline"])], filename="policy.docx", embedder=embedder)
+
+    assert chunks[0].content == data

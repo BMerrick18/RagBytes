@@ -9,6 +9,9 @@ StyleName = Literal["precise", "balanced", "broad"]
 # A document needs this many neighbour scores before its own spread is trusted
 # to move the floor. A shorter document keeps the style's floor.
 _ADAPT_PAIRS = 20
+# A document whose passages score high may raise the floor, but only by this
+# much, so precise, balanced, and broad stay apart.
+_FLOOR_RAISE = 0.04
 
 
 @dataclass(frozen=True)
@@ -16,12 +19,13 @@ class Style:
     """How readily semantic chunking cuts, and how large a chunk may grow.
 
     ``floor`` is the score below which neighbours are unrelated. A long enough
-    document lowers it towards ``floor_low`` when its passages score low
-    against each other as a rule. ``min_chars`` and ``max_chars`` bound a
-    chunk's size. A text run under ``fragment_chars`` that does not end like a
-    sentence, such as a date or a label, always joins a neighbour, and so
-    does any text run under ``tiny_chars``, half the minimum, whatever its
-    score. ``merge_headings`` lets small neighbouring headings share a chunk.
+    document moves it with that document's own scores, down as far as
+    ``floor_low`` or up by a small step, and never above the document's
+    median. ``min_chars`` and ``max_chars`` bound a chunk's size. A text run
+    under ``fragment_chars`` that does not end like a sentence, such as a date
+    or a label, always joins a neighbour, and so does any text run under
+    ``tiny_chars``, half the minimum, whatever its score. ``merge_headings``
+    lets small neighbouring headings share a chunk.
     """
 
     name: StyleName
@@ -64,11 +68,22 @@ def resolve_style(
 def for_document(style: Style, neighbour_scores: list[float]) -> Style:
     """Return ``style`` with its floor moved for this document's own scores.
 
-    The floor drops to half a standard deviation below the document's median
-    neighbour score, but no lower than ``floor_low`` and never higher than the
-    style's floor.
+    The floor drops to half a standard deviation below the median, but no
+    lower than ``floor_low``. When the passages score high and tight, it
+    rises toward one and a half standard deviations below the median, by no
+    more than a small step above the style's own floor, and never above the
+    median. A wide spread leaves the style floor where it is, so a typical
+    document does not start cutting every join.
     """
     if len(neighbour_scores) < _ADAPT_PAIRS:
         return style
-    adapted = statistics.median(neighbour_scores) - 0.5 * statistics.pstdev(neighbour_scores)
-    return replace(style, floor=min(style.floor, max(style.floor_low, adapted)))
+    median = statistics.median(neighbour_scores)
+    spread = statistics.pstdev(neighbour_scores)
+    lowered = median - 0.5 * spread
+    if lowered < style.floor:
+        return replace(style, floor=min(style.floor, max(style.floor_low, lowered)))
+    upper = median - 1.5 * spread
+    if upper <= style.floor:
+        return style
+    cap = min(median, style.floor + _FLOOR_RAISE)
+    return replace(style, floor=max(style.floor, min(upper, cap)))

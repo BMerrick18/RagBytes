@@ -3,7 +3,7 @@
 from ragbytes.chunk.semantic.boundaries import attach_fragments, first_pass_cuts, neighbour_scores, second_pass_cuts
 from ragbytes.chunk.semantic.chunks import chunk_sections, chunks_from_sections, whole_after_first_pass
 from ragbytes.chunk.semantic.embed import Embedder, embed_texts
-from ragbytes.chunk.semantic.embed_prep import HeadingPassages, PreparedSentence, prepare_sentences
+from ragbytes.chunk.semantic.embed_prep import HeadingPassages, PreparedSentence, prepare_sentences, split_to_limit
 from ragbytes.chunk.semantic.siblings import merge_small_headings
 from ragbytes.chunk.semantic.styles import BALANCED, Style, for_document
 from ragbytes.schemas import Chunk, Section
@@ -15,22 +15,25 @@ def chunk_semantic(
     """Chunk a document from embedding similarity, one heading path at a time.
 
     Both embedding passes cover the whole document, because headings do not
-    depend on each other. The first pass embeds every long paragraph and long
-    list, under every heading, as one list. Each heading is then cut from its
-    own slice of those vectors, and the split pieces are joined back into
-    sections. A heading under the style's minimum size then joins the sibling
-    heading beside it, when the two share a heading above them that can label
-    the chunk. The second pass embeds those sections together with
-    the short passages, tables, and figures, again as one list. Each heading,
-    or group of joined headings, is cut from its own slice. A sharp drop
-    between the passages either side of a join starts a new chunk. Where the
-    similarity stays close, several passages share one chunk. A chunk grows
-    to the style's maximum before it is split at its weakest join, and a
-    chunk under the minimum joins its closer neighbour unless both are
-    unrelated. A short label or date always joins a neighbour, and so does a
-    text run under half the minimum, since a lone sentence scores low against
-    its paragraph yet cannot stand as a chunk. A heading change between two
-    larger headings always starts a new chunk.
+    depend on each other. The first pass embeds a paragraph or a list only
+    when it is longer than the style's maximum, under every heading, as one
+    list. Each heading is then cut from its own slice of those vectors, and
+    the split pieces are joined back into sections. A heading under the
+    style's minimum size then joins the sibling heading beside it, when the
+    two share a heading above them that can label the chunk. The second pass
+    embeds those sections together with the short passages, tables, and
+    figures, again as one list. Each heading, or group of joined headings, is
+    cut from its own slice. A sharp drop between the passages either side of
+    a join starts a new chunk. Where the similarity stays close, several
+    passages share one chunk. A chunk that would pass the maximum is split
+    into the fewest pieces at the lowest neighbour scores, as evenly as those
+    scores allow, and a chunk under the minimum joins its closer neighbour
+    unless both are unrelated. A passage that is still longer than the
+    maximum is split between its items, rows, or lines. A short label or date
+    always joins a neighbour, and so does a text run under half the minimum,
+    since a lone sentence scores low against its paragraph yet cannot stand
+    as a chunk. A heading change between two larger headings always starts a
+    new chunk.
 
     Each pass sets its own floor for unrelated neighbours from that pass's
     scores, so a document whose passages score low as a rule is not cut at
@@ -41,7 +44,7 @@ def chunk_semantic(
     heading with fewer than two passages to compare is left out of that pass.
     """
     originals = {section.id: section for section in sections}
-    scopes = prepare_sentences(sections)
+    scopes = prepare_sentences(sections, style)
     umbrellas = merge_small_headings(scopes, _after_first_pass(scopes, embedder, style), style)
     cuts_by_umbrella = _second_cuts([umbrella.passages for umbrella in umbrellas], embedder, style)
     built: list[Section] = []
@@ -50,7 +53,39 @@ def chunk_semantic(
         built.extend(
             chunk_sections(umbrella.passages, kept, originals, start_index=len(built), umbrella=umbrella)
         )
-    return chunks_from_sections(built, filename=filename)
+    return chunks_from_sections(_fit_limit(built, style), filename=filename)
+
+
+_TEXT_MEDIA = frozenset({"application/xml", "application/xhtml+xml"})
+
+
+def _fit_limit(sections: list[Section], style: Style) -> list[Section]:
+    """Split any text section that is still over the style maximum.
+
+    A chunk whose content is image bytes is left whole.
+    """
+    fitted: list[Section] = []
+    for section in sections:
+        visible = section.data.strip()
+        if _byte_content(section) or len(visible) <= style.max_chars:
+            fitted.append(section)
+            continue
+        for part in split_to_limit(visible, section.kind, style.max_chars):
+            fitted.append(section.model_copy(update={"data": part, "media": None, "media_type": None}))
+    for index, section in enumerate(fitted):
+        if section.index != index:
+            fitted[index] = section.model_copy(update={"index": index})
+    return fitted
+
+
+def _byte_content(section: Section) -> bool:
+    """True when the finished chunk carries bytes rather than the section text."""
+    if not section.media:
+        return False
+    media_type = section.media_type or ""
+    if media_type.startswith("text/") or media_type in _TEXT_MEDIA:
+        return False
+    return True
 
 
 def _after_first_pass(

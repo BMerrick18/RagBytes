@@ -1,3 +1,5 @@
+import statistics
+
 import pytest
 
 from ragbytes.chunk.semantic.boundaries import attach_fragments, cut_indexes
@@ -59,7 +61,24 @@ def test_a_document_that_scores_low_throughout_lowers_its_floor_within_the_style
 
     assert low.floor == pytest.approx(0.275)
     assert very_low.floor == BALANCED.floor_low
-    assert high.floor == BALANCED.floor
+    assert high.floor == pytest.approx(BALANCED.floor + 0.04)
+    assert high.floor <= statistics.median([0.6, 0.7] * 15)
+
+
+def test_a_high_scoring_document_keeps_the_three_styles_apart():
+    scores = [0.6, 0.7] * 15
+    precise, balanced, broad = (for_document(STYLES[name], scores) for name in ("precise", "balanced", "broad"))
+
+    assert precise.floor > balanced.floor > broad.floor
+    assert precise.floor <= STYLES["precise"].floor + 0.04
+    assert broad.floor >= STYLES["broad"].floor
+
+
+def test_a_spread_out_document_keeps_the_style_floor():
+    scores = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8] * 4
+
+    assert for_document(BALANCED, scores).floor == BALANCED.floor
+    assert for_document(STYLES["precise"], scores).floor == STYLES["precise"].floor
 
 
 def test_a_date_joins_the_run_after_it():

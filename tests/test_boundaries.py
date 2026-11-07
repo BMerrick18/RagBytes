@@ -1,7 +1,8 @@
 import math
 
-from ragbytes.chunk.semantic.boundaries import cosine, cut_indexes, first_pass_cuts
+from ragbytes.chunk.semantic.boundaries import attach_fragments, cosine, cut_indexes, first_pass_cuts
 from ragbytes.chunk.semantic.embed_prep import PreparedSentence
+from ragbytes.chunk.semantic.styles import BALANCED
 
 
 def _alike(count: int, score: float) -> list[list[float]]:
@@ -90,6 +91,65 @@ def test_a_short_run_is_not_joined_past_the_size_limit():
     vectors = [_at(0.4), [1.0, 0.0], [1.0, 0.0], [1.0, 0.0]]
 
     assert cut_indexes(vectors, [50, 650, 650, 650]) == [1]
+
+
+def _with_pair_scores(scores: list[float]) -> list[list[float]]:
+    """Unit vectors whose successive neighbour scores are ``scores``."""
+    dimension = len(scores) + 1
+    vectors = [[0.0] * dimension for _ in range(dimension)]
+    vectors[0][0] = 1.0
+    for index, score in enumerate(scores):
+        fresh = math.sqrt(max(0.0, 1.0 - score * score))
+        vectors[index + 1] = [score * value for value in vectors[index]]
+        vectors[index + 1][index + 1] = fresh
+    return vectors
+
+
+def test_the_first_pass_bisects_a_long_block_when_no_join_is_low():
+    passages = []
+    for order in range(4):
+        passage = _passage(0, order)
+        passage.text = "x" * 600
+        passages.append(passage)
+
+    cuts = first_pass_cuts(passages, _with_pair_scores([0.90, 0.95, 0.95]))
+
+    assert cuts == {0: [2]}
+
+
+def _run(text: str, order: int, kind: str = "text") -> PreparedSentence:
+    passage = _passage(None, order)
+    passage.text = text
+    passage.kind = kind
+    passage.group = None
+    return passage
+
+
+def test_a_colon_introducer_joins_the_following_run():
+    intro = (
+        "26 If the sub-committee decides that the case is proven after hearing the member, "
+        "it may impose any of the following:"
+    )
+    assert BALANCED.tiny_chars < len(intro) <= BALANCED.min_chars
+    body = "The panel may warn the member or remove them from the committee."
+    passages = [_run(intro, 0), _run(body, 1)]
+
+    assert attach_fragments(passages, [1]) == []
+
+
+def test_a_short_described_image_run_joins_neighbouring_text():
+    body = (
+        "Annual leave is booked with the clerk at least a week before the first day away, "
+        "and the chair records the dates in the register."
+    )
+    passages = [
+        _run(body, 0),
+        _run("[Image: Adopted]", 1, kind="image"),
+        _run("ANNUAL LEAVE", 2),
+        _run("The clerk keeps the leave book in the office.", 3),
+    ]
+
+    assert attach_fragments(passages, [1, 3]) == []
 
 
 def test_each_embed_group_is_judged_on_its_own():

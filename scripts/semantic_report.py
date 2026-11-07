@@ -55,15 +55,31 @@ def report(path: Path, embedder: CachedEmbedder, show: int, style: Style) -> Non
             f"chars min={min(sizes)} p25={quartiles[0]:.0f} median={quartiles[1]:.0f} "
             f"p75={quartiles[2]:.0f} max={max(sizes)}"
         )
+        texts = [chunk.content for chunk in chunks if isinstance(chunk.content, str)]
+        over = sum(len(text) > style.max_chars for text in texts)
+        shared = sum(1 for left, right in zip(texts, texts[1:]) if _prefix(left, right) >= 60)
+        standalone = sum(len(text) < style.fragment_chars for text in texts)
         print(
             f"under {style.min_chars}: {sum(size < style.min_chars for size in sizes)}   "
-            f"over {style.max_chars}: {sum(size > style.max_chars for size in sizes)}"
+            f"over {style.max_chars}: {over}   "
+            f"shared prefix >= 60: {shared}   "
+            f"standalone under {style.fragment_chars}: {standalone}"
         )
     for chunk in chunks[:show]:
         text = chunk.content if isinstance(chunk.content, str) else f"<{len(chunk.content)} bytes>"
         path_label = " > ".join(chunk.metadata.headings) or "(no heading)"
         preview = text.replace("\n", " | ")[:160]
         print(f"  #{chunk.metadata.chunk_number} [{len(text)}] {path_label}: {preview}")
+
+
+def _prefix(left: str, right: str) -> int:
+    """How many characters the two chunks share at the start."""
+    count = 0
+    for one, other in zip(left, right):
+        if one != other:
+            break
+        count += 1
+    return count
 
 
 def main() -> None:
