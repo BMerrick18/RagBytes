@@ -43,6 +43,8 @@ _FOOTNOTES = "http://schemas.openxmlformats.org/officeDocument/2006/relationship
 _ENDNOTES = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/endnotes"
 _LAYOUT_PARAGRAPHS = 3
 _LAYOUT_WORDS = 60
+# A bold line at body size with more words than this is a bold passage, not a title.
+_BOLD_TITLE_WORDS = 10
 _TEXT_PIECES = {qn("w:t"): None, qn("w:tab"): "\t", qn("w:br"): "\n", qn("w:cr"): "\n", qn("w:noBreakHyphen"): "-"}
 _HIDDEN_TEXT = frozenset({qn("w:txbxContent"), qn("w:moveFrom"), _FALLBACK})
 _NOTE_REFERENCES = {qn("w:footnoteReference"): "Footnote", qn("w:endnoteReference"): "Endnote"}
@@ -81,9 +83,11 @@ def extract_docx(data: bytes) -> list[Section]:
     """Convert a Word document into heading-labeled sections.
 
     A short paragraph that is mostly bold is also a heading when its font is
-    larger than the body, or when it keeps the same size and has space above
-    it. The largest of those sizes is the top heading, and each smaller size
-    is the next level down. A style based on Heading 1 through Heading 9
+    larger than the body, when it keeps the same size and has space above it,
+    or when it is body size and plain text or a table follows it. A short
+    line that a list follows is a heading in templates that do not mark
+    titles. The largest of those sizes is the top heading, and each
+    smaller size is the next level down. A style based on Heading 1 through Heading 9
     keeps that level. Table-of-contents lines are left out, and a drop cap
     joins the paragraph it starts. Text inside content controls and tracked
     insertions is read, and tracked deletions are not. A text box is read
@@ -311,6 +315,8 @@ def _append_paragraph(
         level = _visual_heading_level(
             paragraph, body_size, heading_levels, _default_size(document)
         )
+    if level is None:
+        level = _unstyled_list_heading(paragraph)
     notes = story.notes_in(paragraph._element)
     in_list = False
     if level is not None and displayed:
@@ -588,7 +594,80 @@ def _visual_heading_size(
     size = round(max(sizes), 1)
     if size >= body_size + 0.5 or _has_heading_spacing(paragraph):
         return size
+    if _stands_alone(paragraph, body_size, default):
+        return size
     return None
+
+
+def _stands_alone(paragraph: Paragraph, body_size: float, default: float | None) -> bool:
+    """A short bold line at body size that plain text or a table follows heads a section.
+
+    Templates often set their titles this way, with no style, no size change,
+    and no space above. A bold line that another bold line follows is the
+    first line of a bold passage, unless that line is a title by its own
+    size or spacing.
+    """
+    text = _displayed_heading_text(paragraph)
+    if len(text.split()) > _BOLD_TITLE_WORDS:
+        return False
+    following = _next_block(paragraph._element)
+    if following is None:
+        return False
+    if following.tag == qn("w:tbl"):
+        return True
+    nxt = Paragraph(following, paragraph._parent)
+    if _bold_fraction(nxt) < 0.75:
+        return True
+    sizes = [_run_size(run, nxt, default) for run in nxt.runs if run.text.strip()]
+    known = [size for size in sizes if size is not None]
+    return bool(known) and (max(known) >= body_size + 0.5 or _has_heading_spacing(nxt))
+
+
+def _next_block(element):
+    """The next paragraph with text, or the next table, after this paragraph."""
+    sibling = element.getnext()
+    while sibling is not None:
+        if sibling.tag == qn("w:tbl"):
+            return sibling
+        if sibling.tag == qn("w:p") and _paragraph_text(sibling).strip():
+            return sibling
+        if sibling.tag == qn("w:sdt"):
+            content = sibling.find(qn("w:sdtContent"))
+            inner = _next_block_in(content) if content is not None else None
+            if inner is not None:
+                return inner
+        sibling = sibling.getnext()
+    return None
+
+
+def _next_block_in(container):
+    for child in container.iterchildren():
+        if child.tag == qn("w:tbl"):
+            return child
+        if child.tag == qn("w:p") and _paragraph_text(child).strip():
+            return child
+    return None
+
+
+def _unstyled_list_heading(paragraph: Paragraph) -> int | None:
+    """A short line that a list follows heads that list.
+
+    Policy templates often set ``Examples of misconduct`` in the body style
+    and put the examples in the list under it. A line that ends like a
+    sentence, or a label such as ``Steps:``, is not a title.
+    """
+    text = _displayed_heading_text(paragraph)
+    if not looks_like_heading(text) or len(text.split()) > 8:
+        return None
+    if _is_list(paragraph) or _is_toc(paragraph):
+        return None
+    following = _next_block(paragraph._element)
+    if following is None or following.tag != qn("w:p"):
+        return None
+    nxt = Paragraph(following, paragraph._parent)
+    if not _is_list(nxt):
+        return None
+    return 1
 
 
 def _oversized_list(paragraph: Paragraph, body_size: float, default: float | None) -> bool:

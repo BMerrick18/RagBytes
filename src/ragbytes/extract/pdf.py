@@ -44,10 +44,18 @@ larger than the body, a bold line that is also larger, an outline entry, or
 a numbered section title. A numbered line such as ``1. Mounting Position``
 is a title only when it is set in bold; a plain one is a list item. A
 paragraph number from the margin never makes a plain line a title, and
-neither does a line of author names under a paper's title. Wrapped
-lines of one title are joined. The largest heading size is level 1, and a
+neither does a line of author names under a paper's title. A plain line
+that wraps onto the next line, even when that line starts with a capital,
+is a paragraph, not a title, and ``Part of ...`` is not a chapter heading.
+A short bold line at body size with space above it heads a section even
+when a picture or another title follows it. When some body-size bold
+titles are in capitals and others are in mixed case, the capitals sit
+one level above. Wrapped lines of one title are joined, including a
+hanging indent after a number. The largest heading size is level 1, and a
 bold numbered title at body size sits under every sized heading, with
-``1-1.`` one level under ``1.``.
+``1-1.`` one level under ``1.``. A small picture printed at the same
+spot on at least a third of the pages, such as a stamp or a logo, is left
+out.
 """
 
 import math
@@ -90,10 +98,24 @@ _BULLET = re.compile(r"^(?:[•●▪◦‣・*]|\-)\s+(\S.*)$")
 _NUMBERED = re.compile(r"^(\d{1,3}(?:-\d{1,3})*[.)])\s+(\S.*)$")
 _NUMBERED_TITLE = re.compile(r"^(\d{1,3}(?:-\d{1,3})*)[.)]\s+\S")
 _MULTINUM = re.compile(r"^(\d+(?:\.\d+)+)\.?\s+\S")
-_CHAPTER = re.compile(r"^(?:chapter|part|appendix)\b", re.IGNORECASE)
+# ``Chapter 3``, ``Part II``, ``Appendix A``. A sentence that happens to open
+# with ``Part of ...`` names no chapter.
+_CHAPTER = re.compile(r"^(?:chapter|part|appendix)\s+(?:\d{1,3}|[ivxlc]{1,6}|[a-z])(?![\w'’])", re.IGNORECASE)
 _SECTION_NUMBER = re.compile(r"^\d{1,3}(?:\.\d{1,3})*\.?\s+\S")
+# A label set before a heading's text: ``1.``, ``2.3``, ``A.4``, ``(b)``, ``iv)``.
+_LABEL_WORD = re.compile(r"^\(?(?:\d{1,3}|[A-Za-z]|[ivxlc]{1,6})(?:(?:\.\d{1,3})+[.)]?|[.)])$")
+# A wrapped heading's next line starts within this many points of the hanging edge.
+_HANG_SLACK = 3.0
 _TITLE_SCALE = 1.25
+# A cover title, this many times body size, may wrap with a line's gap between its lines.
+_COVER_SCALE = 2.0
+_COVER_LEADING = 1.25
 _BOLD_TITLE_WORDS = 10
+# A plain numbered line with more words than this must be set in title case to be a heading.
+_PLAIN_PATTERN_WORDS = 6
+# A plain line ending this close to the right edge of the page's text, with a
+# line of the same size just below it, is a wrapped line of a paragraph.
+_MARGIN_REACH = 1.5
 _MIN_TITLE_LETTERS = 4
 _SMALL_WORDS = frozenset({"a", "an", "and", "as", "at", "for", "in", "of", "on", "or", "the", "to", "vs"})
 _SECTION_WORD = re.compile(r"^section\b", re.IGNORECASE)
@@ -113,6 +135,8 @@ _MAX_WORD_GAP = _MIN_GUTTER - 1
 _MAX_LABEL_GAP = 60.0
 _CHROME_PREFIX = 40
 _CHROME_SHARE = 0.3
+# A repeated picture is a stamp or logo when its area is under this share of the page height squared.
+_STAMP_SHARE = 0.05
 _OVERPRINT_SLACK = 1.0
 _CHROME_SIZE_SLACK = 2.0
 _LIST_INDENT = 8
@@ -140,6 +164,11 @@ _EMAIL_DOMAIN = re.compile(r"@\s?[\w-]+(?:\.[\w-]+)+")
 _BYLINE_STOP = re.compile(r"\b(?:contact|email|e-mail|support|about|enquiries|questions|help)\b", re.IGNORECASE)
 _BYLINE_LOOKAHEAD = 5
 _BASELINE_SLIP = 0.35
+# Single letters stacked this many deep, no further apart than this share of their size, are text on its side.
+_VERTICAL_RUN = 3
+_VERTICAL_PITCH = 0.5
+_VERTICAL_GLYPHS = 2
+_LONE_REACH = 3.0
 _CLOSING_MARKS = frozenset(",.;:!?%)]}”’")
 _OPENING_MARKS = frozenset("([{“‘")
 
@@ -154,10 +183,16 @@ class _Block(NamedTuple):
 
 
 class _Figure(NamedTuple):
-    """A picture on the page: cropped PNG bytes, and the words of a flowchart drawn there."""
+    """A picture on the page: cropped PNG bytes, and the words of a flowchart drawn there.
+
+    ``key`` names an embedded picture by where it sits and what it holds, so
+    the same stamp or logo printed on many pages can be recognised. A
+    drawing has no key.
+    """
 
     media: bytes | None
     text: str = ""
+    key: tuple | None = None
 
 
 def extract_pdf(data: bytes) -> list[Section]:
@@ -192,6 +227,8 @@ def _extract_pdf(data: bytes) -> list[Section]:
     candidates = _heading_candidates(pages, body_size, chrome, repeats, outlines)
     outlines = _outlines_under_cover(candidates, body_size, outlines)
     scale = _heading_scale(candidates, body_size)
+    caps_tier = _has_caps_titles(candidates, body_size)
+    stamps = _repeated_images(pages)
     state = HeadingState()
     sections: list[Section] = []
     for page_number, height, (words, tables, images) in pages:
@@ -199,7 +236,7 @@ def _extract_pdf(data: bytes) -> list[Section]:
         page_sections = _page_blocks(
             words,
             visible,
-            images,
+            [(box, figure) for box, figure in images if figure.key not in stamps],
             body_size,
             state,
             page_number,
@@ -208,6 +245,7 @@ def _extract_pdf(data: bytes) -> list[Section]:
             scale,
             outlines,
             repeats,
+            caps_tier,
         )
         _join_across_pages(sections, page_sections)
         sections.extend(page_sections)
@@ -305,8 +343,8 @@ def _capture_page(
     raw_tables = _find_tables(page, words)
     tables, kept_images, covered_boxes = _package_tables(page, raw_tables, raw_images)
     images: list[tuple[tuple[float, float, float, float], _Figure]] = []
-    for box, _image in kept_images:
-        images.append((box, _Figure(_safe_crop(page, box))))
+    for box, image in kept_images:
+        images.append((box, _Figure(_safe_crop(page, box), key=_image_key(box, image, page))))
     excluded = [bbox for bbox, _kind, _payload in tables] + [box for box, _ in images]
     for drawing in find_drawings(page, words, excluded):
         images.append((drawing.box, _Figure(_safe_crop(page, drawing.box), drawing.text)))
@@ -334,12 +372,81 @@ def _page_words(page, *, return_chars: bool = False, clipped: Clipped | None = N
         )
         or []
     )
-    words = [word for word in words if word.get("upright", True)]
+    words = _without_vertical_runs([word for word in words if word.get("upright", True)])
     _align_to_baselines(page, words)
     if not return_chars:
         for word in words:
             word.pop("chars", None)
     return words
+
+
+def _without_vertical_runs(words: list[dict]) -> list[dict]:
+    """Drop letters stacked one above the next, which is text set on its side.
+
+    A label running up the side of a page is sometimes drawn one upright
+    glyph at a time, so each letter, or a touching pair of letters, arrives
+    as its own word. Read across the page those letters are noise. A stack
+    is three or more such words with at least one lowercase letter, sharing
+    a column and set no further apart than a glyph would be in a word. A
+    column of numbers in a table stays: it has no lowercase letter. A short
+    word with another word beside it on the same line is part of a line of
+    prose, however the lines above and below happen to fall, and stays too.
+    """
+    singles = [
+        index
+        for index, word in enumerate(words)
+        if len(word["text"]) <= _VERTICAL_GLYPHS and word["text"].isalnum() and _alone_on_line(words, index)
+    ]
+    if len(singles) < _VERTICAL_RUN:
+        return words
+    columns: list[list[int]] = []
+    for index in sorted(singles, key=lambda index: float(words[index]["x0"])):
+        word = words[index]
+        if columns and float(word["x0"]) <= max(float(words[other]["x1"]) for other in columns[-1]):
+            columns[-1].append(index)
+        else:
+            columns.append([index])
+    dropped: set[int] = set()
+    for column in columns:
+        column.sort(key=lambda index: float(words[index]["top"]))
+        run: list[int] = []
+        for index in column:
+            if run:
+                previous = words[run[-1]]
+                size = max(float(words[index].get("size") or 0), float(previous.get("size") or 0), 1.0)
+                if float(words[index]["top"]) - _word_bottom(previous) > size * _VERTICAL_PITCH:
+                    dropped.update(_stacked_letters(words, run))
+                    run = []
+            run.append(index)
+        dropped.update(_stacked_letters(words, run))
+    if not dropped:
+        return words
+    return [word for index, word in enumerate(words) if index not in dropped]
+
+
+def _alone_on_line(words: list[dict], index: int) -> bool:
+    """No other word shares this word's line within a few glyphs of it."""
+    word = words[index]
+    top, bottom = float(word["top"]), _word_bottom(word)
+    reach = max(float(word.get("size") or 0), 1.0) * _LONE_REACH
+    left, right = float(word["x0"]) - reach, float(word["x1"]) + reach
+    for other_index, other in enumerate(words):
+        if other_index == index:
+            continue
+        if float(other["x1"]) < left or float(other["x0"]) > right:
+            continue
+        overlap = min(bottom, _word_bottom(other)) - max(top, float(other["top"]))
+        if overlap > (bottom - top) * 0.5:
+            return False
+    return True
+
+
+def _stacked_letters(words: list[dict], run: list[int]) -> list[int]:
+    if len(run) < _VERTICAL_RUN:
+        return []
+    if not any(any(char.islower() for char in words[index]["text"]) for index in run):
+        return []
+    return run
 
 
 def _align_to_baselines(page, words: list[dict]) -> None:
@@ -951,6 +1058,7 @@ def _page_blocks(
     scale: dict[float, int],
     outlines: dict[str, int],
     repeats: set[str],
+    caps_tier: bool = False,
 ) -> list[Section]:
     sections: list[Section] = []
     items = _ordered_blocks(words, tables, images)
@@ -1090,7 +1198,7 @@ def _page_blocks(
             merged, count = matched
             flush()
             flush_list()
-            level = _assigned_level(merged, body_size, scale, outlines)
+            level = _assigned_level(merged, body_size, scale, outlines, caps_tier)
             state.apply(_consistent_level(state, merged["text"], level), merged["text"])
             last_top = merged["last_top"]
             previous_bottom = merged["bottom"]
@@ -1338,6 +1446,26 @@ def _image_box(image) -> tuple[float, float, float, float] | None:
     return x0, top, x1, bottom
 
 
+def _image_key(box, image, page) -> tuple:
+    """Name an embedded picture by its place on the page and the size of its source.
+
+    A stamp, logo, or decorative rule printed on many pages lands at the same
+    spot each time and comes from the same source bitmap, so the same key
+    repeats from page to page while a real figure's does not. The place is
+    measured from the page's edges, rounded to the point.
+    """
+    x0, top, x1, bottom = box
+    width = float(page.width)
+    height = float(page.height)
+    return (
+        round(x0),
+        round(top),
+        round(width - x1),
+        round(height - bottom),
+        image.get("srcsize"),
+    )
+
+
 def _outside_tables(words, boxes) -> list[dict]:
     kept = []
     for word in words:
@@ -1395,6 +1523,16 @@ def _measure_line(line: dict, prefix: str = "") -> None:
     line["bold"] = _line_is_bold(line["words"])
     line["bottom"] = max(word.get("bottom", word["top"] + line["size"]) for word in line["words"])
     line["top"] = min(word["top"] for word in line["words"])
+    line["hang"] = _hanging_edge(line["words"])
+
+
+def _hanging_edge(words: list[dict]) -> float | None:
+    """Where the text after a leading number or letter label starts, if there is one."""
+    if len(words) < 2:
+        return None
+    if _LABEL_WORD.match(words[0]["text"]):
+        return float(words[1]["x0"])
+    return None
 
 
 def _word_text(words: list[dict]) -> str:
@@ -1661,6 +1799,29 @@ def _margin_chrome(pages: list[tuple[int, float, tuple]]) -> dict[str, float]:
     }
 
 
+def _repeated_images(pages: list[tuple[int, float, tuple]]) -> set[tuple]:
+    """Keys of small pictures printed at the same spot on at least three pages.
+
+    An ``Adopted`` stamp, a logo, or a decorative rule says nothing new on
+    each page it appears on, and as a section of its own it would only pad
+    the output. A third of the pages is too high a bar on a long handbook
+    that stamps only some of its sections. A picture covering a larger
+    share of the page is content even when it repeats, as a form's
+    template does.
+    """
+    if len(pages) < 3:
+        return set()
+    counts: Counter[tuple] = Counter()
+    for _, height, (_, _, images) in pages:
+        seen: set[tuple] = set()
+        for box, figure in images:
+            if figure.key is None or _box_area(box) > _STAMP_SHARE * height * height:
+                continue
+            seen.add(figure.key)
+        counts.update(seen)
+    return {key for key, count in counts.items() if count >= 3}
+
+
 def _without_chrome_tables(tables, height: float, chrome: dict[str, float]):
     kept = []
     for bbox, kind, rendered in tables:
@@ -1763,6 +1924,30 @@ def _heading_scale(candidates: list[dict], body_size: float) -> dict[float, int]
     found = [_size_key(line["size"]) for line in candidates if line["size"] >= body_size * 1.08]
     ranked = sorted(set(found), reverse=True)
     return {size: min(index + 1, 6) for index, size in enumerate(ranked)}
+
+
+def _has_caps_titles(candidates: list[dict], body_size: float) -> bool:
+    """Whether the file sets some body-size bold titles in capitals and others in mixed case.
+
+    A handbook that cannot vary its type size often marks its policy titles
+    with capitals and their sections with mixed case, so the capitals are
+    the outer level.
+    """
+    caps = False
+    mixed = False
+    for line in candidates:
+        if not line["bold"] or line["size"] >= body_size * 1.08:
+            continue
+        if _is_all_caps(line["text"]):
+            caps = True
+        else:
+            mixed = True
+    return caps and mixed
+
+
+def _is_all_caps(text: str) -> bool:
+    letters = [char for char in text if char.isalpha()]
+    return len(letters) >= 3 and all(char.isupper() for char in letters)
 
 
 def _outlines_under_cover(candidates: list[dict], body_size: float, outlines: dict[str, int]) -> dict[str, int]:
@@ -1915,9 +2100,11 @@ def _is_byline(line: dict, items: list[_Block], index: int, count: int) -> bool:
 def _is_bold_title(
     line: dict, gap: float | None, items: list[_Block], cursor: int, body_size: float
 ) -> bool:
-    """A short bold line at body size, with space above and plain text below, heads a section.
+    """A short bold line at body size, with space above, heads a section.
 
-    Handbooks and policies often set their titles this way.
+    Handbooks and policies often set their titles this way. Plain text, a
+    picture, or a table follows the title, or a bold subtitle does, or the
+    title closes its page and the section begins on the next.
     """
     text = line["text"]
     if not line["bold"] or body_size <= 0 or float(line["size"]) < body_size - 0.5:
@@ -1928,13 +2115,19 @@ def _is_bold_title(
         return False
     if not _title_cased(text):
         return False
-    if not _isolated(gap, float(line["size"])) or cursor >= len(items):
+    if not _isolated(gap, float(line["size"])):
         return False
+    if cursor >= len(items):
+        return True
     block = items[cursor]
     if block.kind != "text" or not isinstance(block.payload, dict):
-        return False
+        return True
     nxt = block.payload
-    return not nxt["bold"] and nxt["text"][:1].isalnum() and float(nxt["top"]) > float(line["top"])
+    if float(nxt["top"]) <= float(line["top"]):
+        return False
+    if nxt["bold"]:
+        return len(nxt["text"].split()) <= _BOLD_TITLE_WORDS and looks_like_heading(nxt["text"])
+    return nxt["text"][:1].isalnum()
 
 
 def _title_cased(text: str) -> bool:
@@ -1950,10 +2143,12 @@ def _title_cased(text: str) -> bool:
 
 
 def _runs_into_prose(line: dict, items: list[_Block], cursor: int, body_size: float) -> bool:
-    """A plain line whose sentence goes on in lowercase just below opens a paragraph.
+    """A plain line that is the first line of a paragraph is not a title.
 
-    On a page set larger than the rest of the file, its first line would
-    otherwise pass as a title.
+    The sentence goes on just below in lowercase, or the line runs to the
+    right edge of the page's text, as a wrapped line does, and a plain line
+    of the same size follows close under it. On a page set larger than the
+    rest of the file, its first line would otherwise pass as a title.
     """
     if line["bold"] or line["size"] >= body_size * _TITLE_SCALE or cursor >= len(items):
         return False
@@ -1962,12 +2157,27 @@ def _runs_into_prose(line: dict, items: list[_Block], cursor: int, body_size: fl
         return False
     nxt = block.payload
     gap = float(nxt["top"]) - float(line["bottom"])
-    return (
+    close = (
         gap <= float(line["size"]) * 0.5
         and abs(float(nxt["size"]) - float(line["size"])) <= 0.6
         and not nxt["bold"]
-        and nxt["text"][:1].islower()
     )
+    if not close:
+        return False
+    if nxt["text"][:1].islower():
+        return True
+    return _reaches_margin(line, items)
+
+
+def _reaches_margin(line: dict, items: list[_Block]) -> bool:
+    """The line ends where the widest text on the page ends, as a wrapped line does."""
+    right = max(
+        (float(block.payload["x1"]) for block in items if block.kind == "text" and isinstance(block.payload, dict)),
+        default=None,
+    )
+    if right is None:
+        return False
+    return float(line["x1"]) >= right - float(line["size"]) * _MARGIN_REACH
 
 
 def _continues_heading(previous: dict, nxt: dict, gap: float, body_size: float) -> bool:
@@ -1976,23 +2186,33 @@ def _continues_heading(previous: dict, nxt: dict, gap: float, body_size: float) 
     A title set well above body size is a document title, which wraps in
     title case and is often centered. Its next line continues it when the
     two share a left edge or a center, unless that line starts a new
-    numbered or chapter heading.
+    numbered or chapter heading. A cover title is set with generous leading,
+    so its lines may sit further apart than its size. A numbered heading
+    wraps with a hanging indent, its next line starting under the text after
+    the number rather than under the number, and a new heading would not
+    start there.
     """
-    if gap > max(float(previous["size"]) * 0.5, 5):
+    title = body_size > 0 and float(previous["size"]) >= body_size * _TITLE_SCALE
+    cover = body_size > 0 and float(previous["size"]) >= body_size * _COVER_SCALE
+    leading = _COVER_LEADING if cover else 0.5
+    if gap > max(float(previous["size"]) * leading, 5):
         return False
     if abs(float(nxt["size"]) - float(previous["size"])) > 0.6:
         return False
     if bool(nxt["bold"]) != bool(previous["bold"]):
         return False
-    title = body_size > 0 and float(previous["size"]) >= body_size * _TITLE_SCALE
+    hang = previous.get("hang")
+    hanging = hang is not None and abs(float(nxt["x0"]) - hang) <= _HANG_SLACK
     if abs(float(nxt["x0"]) - float(previous["x0"])) > 12 and not (
-        title and abs(_center(nxt) - _center(previous)) <= 12
+        hanging or (title and abs(_center(nxt) - _center(previous)) <= 12)
     ):
         return False
     if previous["text"].endswith((".", ",", ";", ":", "!", "?", "-")):
         return False
     if nxt["text"][:1].isupper() and looks_like_heading(nxt["text"]):
-        if not title or _starts_new_heading(previous["text"]) or _starts_new_heading(nxt["text"]):
+        if _starts_new_heading(nxt["text"]):
+            return False
+        if not hanging and (not title or _starts_new_heading(previous["text"])):
             return False
     return len(_join_wrapped([previous["text"], nxt["text"]])) <= 100
 
@@ -2014,6 +2234,7 @@ def _merge_lines(parts: list[dict]) -> dict:
         "bottom": float(parts[-1]["bottom"]),
         "last_top": float(parts[-1]["top"]),
         "x0": float(parts[0]["x0"]),
+        "x1": float(parts[-1]["x1"]),
         "side_label": any(part.get("side_label") for part in parts),
     }
 
@@ -2051,7 +2272,10 @@ def _qualifies(line: dict, body_size: float, gap: float | None, outlines: dict[s
     if larger and (line["bold"] or _isolated(gap, line["size"]) or patterned):
         return True
     if patterned and (line["bold"] or _isolated(gap, line["size"])):
-        return True
+        # A plain numbered line as long as a sentence, such as ``1.2 This
+        # policy applies to all staff who``, is a clause, not a title, unless
+        # it is set in title case.
+        return line["bold"] or len(text.split()) <= _PLAIN_PATTERN_WORDS or _title_cased(text)
     return False
 
 
@@ -2060,23 +2284,35 @@ def _few_letters(text: str) -> bool:
     return sum(1 for char in text if char.isalpha()) < _MIN_TITLE_LETTERS
 
 
-def _assigned_level(line: dict, body_size: float, scale: dict[float, int], outlines: dict[str, int]) -> int:
+def _assigned_level(
+    line: dict,
+    body_size: float,
+    scale: dict[float, int],
+    outlines: dict[str, int],
+    caps_tier: bool = False,
+) -> int:
+    """The level of a title: by outline, then by size, then under every sized heading.
+
+    With ``caps_tier``, a body-size bold title in capitals sits one level
+    above one in mixed case.
+    """
     outlined = _outline_level(line["text"], outlines)
     if outlined is not None:
         return outlined
     sized = _scale_level(line["size"], scale, body_size)
     if sized is not None:
         return sized
+    base = max(scale.values()) + 1 if scale else 1
     numbered = _NUMBERED_TITLE.match(line["text"])
     if numbered is not None and scale:
         # A bold numbered title at body size sits under every sized heading.
-        return min(max(scale.values()) + 1 + numbered.group(1).count("-"), 6)
+        return min(base + numbered.group(1).count("-"), 6)
     pattern = _pattern_level(line["text"])
     if pattern is not None:
         return pattern
-    if scale:
-        return min(max(scale.values()) + 1, 6)
-    return 1
+    if caps_tier and not _is_all_caps(line["text"]):
+        return min(base + 1, 6)
+    return min(base, 6)
 
 
 def _consistent_level(state: HeadingState, text: str, level: int) -> int:
