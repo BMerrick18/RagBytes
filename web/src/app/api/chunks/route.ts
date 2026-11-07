@@ -1,6 +1,8 @@
 import { TIERS } from "@/lib/tiers";
 
 const API_URL = process.env.RAGBYTE_API_URL ?? "http://127.0.0.1:8000";
+// The API validates these values and answers 422 when one is not allowed.
+const SEMANTIC_FIELDS = ["style", "strict_headings", "max_chunk_chars"];
 
 export async function POST(request: Request) {
   const form = await request.formData();
@@ -15,6 +17,12 @@ export async function POST(request: Request) {
 
   const upstream = new FormData();
   upstream.append("file", file, file.name);
+  if (tier === "semantic") {
+    for (const field of SEMANTIC_FIELDS) {
+      const value = form.get(field);
+      if (typeof value === "string" && value !== "") upstream.append(field, value);
+    }
+  }
 
   let response: Response;
   try {
