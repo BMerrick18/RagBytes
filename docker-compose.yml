@@ -15,7 +15,7 @@ services:
     logging: *logging
     environment:
       WEB_CONCURRENCY: ${API_WORKERS:-2}
-      # Semantic stays implemented and unpublished until this is true. The website hides it separately.
+      # Semantic stays implemented and unpublished until this is true. The website shows it grayed out.
       RAGBYTES_SEMANTIC_ENABLED: ${RAGBYTES_SEMANTIC_ENABLED:-false}
       # Server key for semantic chunking. The browser never sends a key. Required once the tier is published.
       RAGBYTES_OPENAI_API_KEY: ${RAGBYTES_OPENAI_API_KEY:-}

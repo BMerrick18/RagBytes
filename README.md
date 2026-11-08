@@ -16,8 +16,8 @@ pip install -e ".[dev]"
 uvicorn ragbytes.main:app --reload
 ```
 
-Semantic chunking is switched off. The implementation remains, and it is not listed on the site or served at
-`POST /v1/chunk/semantic`. Set `RAGBYTES_SEMANTIC_ENABLED=true` and mark the semantic tier `listed` and
+Semantic chunking is switched off. The implementation remains. The site shows the tier grayed out, and
+`POST /v1/chunk/semantic` is not served. Set `RAGBYTES_SEMANTIC_ENABLED=true` and mark the semantic tier
 `available` in `web/src/lib/tiers.ts` to publish it again. It also needs `RAGBYTES_OPENAI_API_KEY`. The key
 stays on the server. `RAGBYTES_SEMANTIC_MODEL` picks the embedding model and defaults to `text-embedding-3-small`.
 The request never carries a key. Passage text is sent to OpenAI and discarded with the file. Without the

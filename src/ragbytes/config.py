@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     app_name: str = "RagBytes API"
     version: str = "dev"
     stats_path: str = "data/stats.db"
-    # Unpublished until this is true. The website hides the tier until it is listed in web/src/lib/tiers.ts.
+    # Unpublished until this is true. The website shows the tier grayed out until available is set in web/src/lib/tiers.ts.
     semantic_enabled: bool = False
     # Server key for semantic chunking. Empty means that tier cannot embed, even when it is published.
     openai_api_key: SecretStr = SecretStr("")
