@@ -183,12 +183,25 @@ def llm_routes() -> APIRouter:
     async def chunk_with_llm(upload: Upload) -> ChunkResponse:
         if not _llm_api_key():
             raise HTTPException(status_code=503, detail="LLM chunking is unavailable.")
+        suffix = Path(upload.file.filename or "").suffix
+        if get_extractor(suffix) is None:
+            raise HTTPException(
+                status_code=415,
+                detail=f"Unsupported file type: {suffix or 'unknown'}",
+            )
+        data = await upload.file.read()
+        filename = upload.file.filename or ""
+        file_id = str(uuid4())
         try:
-            return await _chunk(upload.file, CHUNKERS["llm"])
+            chunks = await run_in_threadpool(
+                CHUNKERS["llm"], data, filename=filename, file_id=file_id
+            )
         except HTTPException:
             raise
         except Exception as exc:
             raise HTTPException(status_code=502, detail="The document could not be chunked.") from exc
+        stats.record(len(chunks))
+        return ChunkResponse(filename=filename, file_id=file_id, chunks=chunks)
 
     return llm
 

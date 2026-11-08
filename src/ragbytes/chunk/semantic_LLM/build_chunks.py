@@ -8,8 +8,15 @@ from ragbytes.chunk.assemble import (
     _offset_text,
     titled_path,
 )
-from ragbytes.chunk.semantic_LLM.text_prep import FigureUnit, ProseRun, TaggedSentence
+from ragbytes.chunk.semantic_embed.embed_prep import _LIST_ITEM
+from ragbytes.chunk.semantic_LLM.text_prep import FigureUnit, ProseRun, TaggedSentence, _BULLET_LINE
 from ragbytes.schemas import Chunk, ChunkDetails, ChunkMetadata, Section, SectionKind
+
+# A piece shorter than this joins the neighbour under the same heading.
+# A full sentence above it can still be its own topic.
+_FRAGMENT_CHARS = 100
+# Matches the semantic tier: a heading under this may share with a neighbour.
+_SHORT_HEADING = 200
 
 
 @dataclass
@@ -46,7 +53,7 @@ def build_chunks(sentences: list[str], splits: list[tuple[int, str]]) -> list[Bu
                 start=begin,
             )
         )
-        return chunks
+    return chunks
 
 
 def build_chunk_records(
@@ -57,8 +64,9 @@ def build_chunk_records(
 ) -> list[Chunk]:
     """Turn checked cuts into the same chunk records the other tiers return.
 
-    ``splits`` are ``(start, topic)`` pairs. ``content`` is the original
-    sentences joined by a space. The topic is metadata, so it is not written
+    ``splits`` are ``(start, topic)`` pairs. ``content`` joins prose sentences
+    with a space. List items stay on their own lines, and a sentence after a
+    list starts a new paragraph. The topic is metadata, so it is not written
     into that text. A slice that stays on one heading path uses the same
     embed text as the other tiers. A slice that crosses paths writes each
     path once, above the sentences that came from it.
@@ -140,7 +148,7 @@ def _prose_records(
         part = sentences[begin:end]
         if not part:
             continue
-        content = " ".join(sentence.text for sentence in part)
+        content = _join_units(part)
         if records or leading_gap:
             cursor += 2
         start = cursor
@@ -212,6 +220,156 @@ def _figure_record(
     )
 
 
+def bound_splits(
+    sentences: list[TaggedSentence], splits: list[tuple[int, str]]
+) -> list[tuple[int, str]]:
+    """Keep the model's cuts, then apply heading and length rules.
+
+    A heading change starts a chunk, unless the two headings are small
+    enough to share one and they sit under a common heading. A short
+    fragment joins the neighbour under the same heading. A one-line label
+    joins the block that follows it.
+    """
+    chosen = _with_heading_splits(sentences, splits)
+    return _merge_short(sentences, chosen)
+
+
+def _with_heading_splits(
+    sentences: list[TaggedSentence], splits: list[tuple[int, str]]
+) -> list[tuple[int, str]]:
+    chosen = _usable_splits(len(sentences), splits)
+    seen = {start for start, _title in chosen}
+    for start in _heading_starts(sentences):
+        if start not in seen:
+            heading = sentences[start].headings
+            chosen.append((start, heading[-1] if heading else ""))
+            seen.add(start)
+    chosen.sort(key=lambda item: item[0])
+    return chosen
+
+
+def _heading_starts(sentences: list[TaggedSentence]) -> set[int]:
+    """Indexes where a heading change has to start a chunk."""
+    groups = _heading_groups(sentences)
+    required: set[int] = set()
+    for index, group in enumerate(groups):
+        if index == 0:
+            continue
+        previous = groups[index - 1]
+        following = groups[index + 1]["headings"] if index + 1 < len(groups) else None
+        if _can_share(previous, group, following):
+            continue
+        required.add(group["start"])
+    return required
+
+
+def _heading_groups(sentences: list[TaggedSentence]) -> list[dict]:
+    groups: list[dict] = []
+    for index, sentence in enumerate(sentences):
+        if groups and groups[-1]["headings"] == sentence.headings:
+            groups[-1]["end"] = index + 1
+            groups[-1]["size"] += len(sentence.text) + 1
+            continue
+        groups.append(
+            {
+                "start": index,
+                "end": index + 1,
+                "headings": list(sentence.headings),
+                "size": len(sentence.text),
+            }
+        )
+    return groups
+
+
+def _can_share(previous: dict, current: dict, following: list[str] | None) -> bool:
+    """Two small headings under one parent may share a chunk.
+
+    Two outermost headings do not: nothing above them covers both. A heading
+    that opens straight into a child waits for that child instead of joining
+    the heading before it.
+    """
+    if _opens(current["headings"], following):
+        return False
+    if previous["size"] >= _SHORT_HEADING and current["size"] >= _SHORT_HEADING:
+        return False
+    path = _shared(previous["headings"], current["headings"])
+    if not path:
+        return False
+    return len(previous["headings"]) <= len(path) + 1 and len(current["headings"]) <= len(path) + 1
+
+
+def _opens(headings: list[str], following: list[str] | None) -> bool:
+    return (
+        following is not None
+        and len(following) > len(headings)
+        and following[: len(headings)] == headings
+    )
+
+
+def _shared(left: list[str], right: list[str]) -> list[str]:
+    shared: list[str] = []
+    for one, other in zip(left, right):
+        if one != other:
+            break
+        shared.append(one)
+    return shared
+
+
+def _merge_short(
+    sentences: list[TaggedSentence], splits: list[tuple[int, str]]
+) -> list[tuple[int, str]]:
+    """Drop a cut that would leave a fragment on its own."""
+    if len(splits) < 2:
+        return splits
+    bounds = [start for start, _title in splits] + [len(sentences)]
+    kept = [splits[0]]
+    for index in range(1, len(splits)):
+        begin = splits[index][0]
+        end = bounds[index + 1]
+        previous = sentences[kept[-1][0] : begin]
+        current = sentences[begin:end]
+        following = sentences[end : bounds[index + 2]] if index + 1 < len(splits) else []
+        if _joins_fragment(previous, current, following):
+            continue
+        kept.append(splits[index])
+    return kept
+
+
+def _joins_fragment(
+    previous: list[TaggedSentence],
+    current: list[TaggedSentence],
+    following: list[TaggedSentence],
+) -> bool:
+    if not previous or not current or not _one_heading(previous) or not _one_heading(current):
+        return False
+    same = previous[0].headings == current[0].headings
+    previous_text = _join_units(previous)
+    current_text = _join_units(current)
+    if same:
+        # A one-line label joins the block after it. A list or code block does not.
+        if len(previous_text) < _FRAGMENT_CHARS and not _is_block(previous[-1]):
+            return True
+        next_same = bool(following) and _one_heading(following) and following[0].headings == current[0].headings
+        if len(current_text) < _FRAGMENT_CHARS and (_ends_sentence(current_text) or not next_same):
+            return True
+        return False
+    following_headings = following[0].headings if following and _one_heading(following) else None
+    return _can_share(
+        {"headings": previous[0].headings, "size": len(previous_text)},
+        {"headings": current[0].headings, "size": len(current_text)},
+        following_headings,
+    )
+
+
+def _one_heading(part: list[TaggedSentence]) -> bool:
+    return all(sentence.headings == part[0].headings for sentence in part)
+
+
+def _ends_sentence(text: str) -> bool:
+    stripped = text.strip()
+    return bool(stripped) and stripped[-1] in ".!?"
+
+
 def _usable_splits(count: int, splits: list[tuple[int, str]]) -> list[tuple[int, str]]:
     chosen: list[tuple[int, str]] = []
     seen: set[int] = set()
@@ -275,13 +433,48 @@ def _embed_text(part: list[TaggedSentence]) -> str:
 
 
 def _groups(part: list[TaggedSentence]) -> list[tuple[list[str], str]]:
-    groups: list[tuple[list[str], list[str]]] = []
+    groups: list[tuple[list[str], list[TaggedSentence]]] = []
     for sentence in part:
         if groups and groups[-1][0] == sentence.headings:
-            groups[-1][1].append(sentence.text)
+            groups[-1][1].append(sentence)
             continue
-        groups.append((list(sentence.headings), [sentence.text]))
-    return [(path, " ".join(texts)) for path, texts in groups]
+        groups.append((list(sentence.headings), [sentence]))
+    return [(path, _join_units(sentences)) for path, sentences in groups]
+
+
+def _join_units(part: list[TaggedSentence]) -> str:
+    """Join sentences. Each list item stays on its own line."""
+    if not part:
+        return ""
+    pieces = [part[0].text]
+    for previous, sentence in zip(part, part[1:]):
+        pieces.append(_gap(previous, sentence) + sentence.text)
+    return "".join(pieces)
+
+
+def _gap(previous: TaggedSentence, following: TaggedSentence) -> str:
+    previous_block = _is_block(previous)
+    following_block = _is_block(following)
+    if previous_block and not following_block:
+        return "\n\n"
+    if previous_block or following_block:
+        return "\n"
+    return " "
+
+
+def _is_block(sentence: TaggedSentence) -> bool:
+    """A list, a bullet run, or code, which keeps its own lines."""
+    if sentence.kind == "code":
+        return True
+    return _is_list_item(sentence) or any(
+        _BULLET_LINE.match(line) for line in sentence.text.split("\n")
+    )
+
+
+def _is_list_item(sentence: TaggedSentence) -> bool:
+    if sentence.kind != "list":
+        return False
+    return any(_LIST_ITEM.match(line) for line in sentence.text.split("\n"))
 
 
 if __name__ == "__main__":

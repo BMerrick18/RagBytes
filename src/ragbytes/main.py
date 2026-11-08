@@ -23,7 +23,7 @@ def api_description() -> str:
     if settings.llm_enabled:
         notes.insert(
             0,
-            "LLM chunking sends the text and any pictures to OpenAI to find the topic cuts, then discards them with the file.",
+            "LLM chunking sends the uploaded file to OpenAI and asks for written topic chunks, then discards the file.",
         )
     return f"""
 Turn PDFs, Word documents, web pages, Markdown and plain text into chunks that are ready to embed.

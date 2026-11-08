@@ -4,7 +4,7 @@ import base64
 import json
 from dataclasses import dataclass
 
-from ragbytes.chunk.semantic_LLM.text_prep import figure_message
+from ragbytes.chunk.semantic_LLM.text_prep import figure_message, numbered_lines
 from ragbytes.schemas import Section
 
 # A dated name stays one model. An undated name can later point at a newer one.
@@ -15,15 +15,25 @@ WINDOW_SENTENCES = 150
 _INSTRUCTIONS = """\
 You split a document into chunks by topic.
 
-The user message is the document, one sentence per line.
-Each line starts with its index in square brackets, like [0].
+The user message is the document.
+A line that starts with an index in square brackets, like [0], is one entry.
+Lines with no index belong to the indexed entry above them.
+A line that starts with # is the heading for the entries under it.
+A list is one entry. Its items are the lines with no index.
+A block of code is one entry too.
 
 Return one entry per chunk.
-start is the index of the sentence where that chunk begins.
+start is the index where that chunk begins.
 title is a short name for that topic.
 
 The first entry always has start 0.
 Add another entry only where the subject changes.
+Start a new chunk when the heading changes.
+A heading that is only a short line may stay with a neighbouring heading on the same subject.
+Keep a short line with the other lines under the same heading.
+Keep a list with the sentences on the same subject.
+Do not give each list item its own chunk.
+Do not split a block of code.
 Use the indexes from the user message. Do not write the sentences back.
 """
 
@@ -248,9 +258,11 @@ def checked_splits(points: list[SplitPoint], sentence_count: int) -> list[SplitP
     return [SplitPoint(start=start, title=kept[start]) for start in sorted(kept)]
 
 
-def _number_window(window: list[str]) -> str:
+def _number_window(
+    window: list[str], headings: list[list[str]] | None = None
+) -> str:
     """Number one batch from 0. These sentences are already split."""
-    return "\n".join(f"[{index}] {sentence}" for index, sentence in enumerate(window))
+    return numbered_lines(window, headings)
 
 
 def next_window(
@@ -272,12 +284,16 @@ def next_window(
 
 
 def split_document(
-    sentences: list[str], *, window_size: int = WINDOW_SENTENCES
+    sentences: list[str],
+    *,
+    headings: list[list[str]] | None = None,
+    window_size: int = WINDOW_SENTENCES,
 ) -> list[tuple[int, str]]:
     """Return checked ``(start, title)`` pairs for the whole document.
 
     A document shorter than one batch is a single call, and every cut is
-    saved. Longer documents continue from the unsaved last cut.
+    saved. Longer documents continue from the unsaved last cut. ``headings``
+    is one path per sentence, written above the first sentence of each path.
     """
     if not sentences:
         return []
@@ -286,7 +302,10 @@ def split_document(
     cursor = 0
     while cursor < len(sentences):
         window = sentences[cursor : cursor + window_size]
-        points = checked_splits(ask_for_splits(_number_window(window)), len(window))
+        window_headings = headings[cursor : cursor + window_size] if headings is not None else None
+        points = checked_splits(
+            ask_for_splits(_number_window(window, window_headings)), len(window)
+        )
         at_end = cursor + len(window) >= len(sentences)
         keep, resume = next_window(points, len(window), at_end=at_end)
         for point in keep:
