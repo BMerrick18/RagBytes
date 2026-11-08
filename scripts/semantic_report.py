@@ -13,9 +13,9 @@ import statistics
 import sys
 from pathlib import Path
 
-from ragbytes.chunk.semantic.embed import OpenAIEmbedder
-from ragbytes.chunk.semantic.semantic import chunk_semantic
-from ragbytes.chunk.semantic.styles import STYLES, Style
+from ragbytes.chunk.semantic_embed.embed import OpenAIEmbedder
+from ragbytes.chunk.semantic_embed.semantic import chunk_semantic
+from ragbytes.chunk.semantic_embed.styles import STYLES, Style
 from ragbytes.config import settings
 from ragbytes.extract.complex import prepare_for_chunking
 from ragbytes.extract.registry import get_extractor

@@ -46,7 +46,12 @@ export function ChunkCard({ chunk }: { chunk: Chunk }) {
         <span className={`rounded-md px-2 py-0.5 font-medium ring-1 ring-inset ${FORMAT_STYLES[metadata.format]}`}>
           {metadata.format}
         </span>
-        {metadata.page !== null && <span className="text-zinc-400">Page {metadata.page}</span>}
+        {metadata.topic && <span className="text-zinc-200">{metadata.topic}</span>}
+        {(metadata.pages?.length ?? 0) > 1 ? (
+          <span className="text-zinc-400">Pages {metadata.pages?.join(", ")}</span>
+        ) : (
+          metadata.page !== null && <span className="text-zinc-400">Page {metadata.page}</span>
+        )}
         <span className="text-zinc-500">{formatNumber(chunk.embed_text.length)} characters</span>
         <div className="ml-auto flex flex-wrap items-center gap-1">
           {!binary && (
@@ -74,6 +79,12 @@ export function ChunkCard({ chunk }: { chunk: Chunk }) {
           </button>
         </div>
       </header>
+
+      {(metadata.heading_paths?.length ?? 0) > 1 && (
+        <p className="mt-2 text-sm text-zinc-300">
+          {metadata.heading_paths?.map((path) => path.join(" › ")).join(" · ")}
+        </p>
+      )}
 
       {trail.length > 0 && !headed && (
         <nav aria-label="Heading path" className="mt-2 flex flex-wrap items-center gap-1 text-sm text-zinc-300">

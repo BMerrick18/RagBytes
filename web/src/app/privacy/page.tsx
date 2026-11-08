@@ -30,6 +30,13 @@ export default function PrivacyPage() {
               for one. Basic and Structured stay on our server.
             </li>
           )}
+          {isOffered("llm") && (
+            <li>
+              LLM chunking sends the passage text, and any image, chart, table, or diagram, to OpenAI to name the
+              topics. That material is discarded with the file when the response is sent. It uses the OpenAI key on
+              this computer. Basic and Structured do not.
+            </li>
+          )}
           <li>Chunks are shown in your browser only. Closing or reloading the page clears them.</li>
         </ul>
       </DocSection>

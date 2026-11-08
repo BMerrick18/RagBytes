@@ -1,8 +1,8 @@
 """Turn cut indexes into sections, then into chunk records."""
 
 from ragbytes.chunk.assemble import sections_for_chunking, titled_path
-from ragbytes.chunk.semantic.embed_prep import HeadingPassages, PreparedSentence, _LIST_ITEM, _embed_text
-from ragbytes.chunk.semantic.siblings import Umbrella
+from ragbytes.chunk.semantic_embed.embed_prep import HeadingPassages, PreparedSentence, _LIST_ITEM, _embed_text
+from ragbytes.chunk.semantic_embed.siblings import Umbrella
 from ragbytes.schemas import Chunk, Section, SectionKind
 
 _MEDIA_KINDS = frozenset({"image", "chart", "complex"})

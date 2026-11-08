@@ -2,8 +2,8 @@
 
 import statistics
 
-from ragbytes.chunk.semantic.embed_prep import PreparedSentence
-from ragbytes.chunk.semantic.styles import BALANCED, Style
+from ragbytes.chunk.semantic_embed.embed_prep import PreparedSentence
+from ragbytes.chunk.semantic_embed.styles import BALANCED, Style
 
 # With several joins, a dip also cuts when it falls this far, or one standard
 # deviation if that is more, below the middle score of the run. The step is

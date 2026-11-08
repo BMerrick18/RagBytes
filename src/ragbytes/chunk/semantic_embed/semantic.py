@@ -1,11 +1,11 @@
 """Run the two embedding passes and return chunks."""
 
-from ragbytes.chunk.semantic.boundaries import attach_fragments, first_pass_cuts, neighbour_scores, second_pass_cuts
-from ragbytes.chunk.semantic.chunks import chunk_sections, chunks_from_sections, whole_after_first_pass
-from ragbytes.chunk.semantic.embed import Embedder, embed_texts
-from ragbytes.chunk.semantic.embed_prep import HeadingPassages, PreparedSentence, prepare_sentences, split_to_limit
-from ragbytes.chunk.semantic.siblings import merge_small_headings
-from ragbytes.chunk.semantic.styles import BALANCED, Style, for_document
+from ragbytes.chunk.semantic_embed.boundaries import attach_fragments, first_pass_cuts, neighbour_scores, second_pass_cuts
+from ragbytes.chunk.semantic_embed.chunks import chunk_sections, chunks_from_sections, whole_after_first_pass
+from ragbytes.chunk.semantic_embed.embed import Embedder, embed_texts
+from ragbytes.chunk.semantic_embed.embed_prep import HeadingPassages, PreparedSentence, prepare_sentences, split_to_limit
+from ragbytes.chunk.semantic_embed.siblings import merge_small_headings
+from ragbytes.chunk.semantic_embed.styles import BALANCED, Style, for_document
 from ragbytes.schemas import Chunk, Section
 
 

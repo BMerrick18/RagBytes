@@ -1,8 +1,8 @@
 """Run semantic chunking with the server's OpenAI key."""
 
-from ragbytes.chunk.semantic.embed import OpenAIEmbedder
-from ragbytes.chunk.semantic.semantic import chunk_semantic
-from ragbytes.chunk.semantic.styles import BALANCED, Style
+from ragbytes.chunk.semantic_embed.embed import OpenAIEmbedder
+from ragbytes.chunk.semantic_embed.semantic import chunk_semantic
+from ragbytes.chunk.semantic_embed.styles import BALANCED, Style
 from ragbytes.config import settings
 from ragbytes.schemas import Chunk, Section
 

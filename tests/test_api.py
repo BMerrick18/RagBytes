@@ -51,7 +51,7 @@ def test_openapi_documents_public_routes():
 
 def test_each_listed_method_path_is_served(monkeypatch):
     monkeypatch.setattr(settings, "openai_api_key", SecretStr("sk-test"))
-    monkeypatch.setattr("ragbytes.chunk.semantic.hosted.OpenAIEmbedder", _FakeEmbedder)
+    monkeypatch.setattr("ragbytes.chunk.semantic_embed.hosted.OpenAIEmbedder", _FakeEmbedder)
     client = TestClient(app)
     for method in client.get("/v1/methods").json()["methods"]:
         response = client.post(method["path"], files={"file": ("notes.txt", b"Some text.", "text/plain")})
@@ -158,6 +158,9 @@ def test_upload_returns_chunks_in_file_order():
     assert first["metadata"]["heading"] == "Guide"
     assert first["metadata"]["subheading"] is None
     assert first["metadata"]["page"] is None
+    assert first["metadata"]["topic"] is None
+    assert first["metadata"]["heading_paths"] == [["Guide"]]
+    assert first["metadata"]["pages"] == []
     joined = "\n\n".join(chunk["content"] for chunk in chunks)
     for chunk in chunks:
         start = chunk["metadata"]["details"]["start"]
@@ -218,7 +221,7 @@ def test_semantic_uses_the_server_key_and_returns_chunks(monkeypatch):
         "harbour office posted the new rates on the gate by the lock."
     )
     monkeypatch.setattr(settings, "openai_api_key", SecretStr("sk-server"))
-    monkeypatch.setattr("ragbytes.chunk.semantic.hosted.OpenAIEmbedder", _Capture)
+    monkeypatch.setattr("ragbytes.chunk.semantic_embed.hosted.OpenAIEmbedder", _Capture)
     response = _semantic_client(monkeypatch).post(
         "/v1/chunk/semantic",
         files={"file": ("notes.txt", f"{lamp}\n\n{tariff}\n".encode(), "text/plain")},
@@ -232,7 +235,7 @@ def test_semantic_uses_the_server_key_and_returns_chunks(monkeypatch):
 
 def test_semantic_reports_the_default_options(monkeypatch):
     monkeypatch.setattr(settings, "openai_api_key", SecretStr("sk-server"))
-    monkeypatch.setattr("ragbytes.chunk.semantic.hosted.OpenAIEmbedder", _FakeEmbedder)
+    monkeypatch.setattr("ragbytes.chunk.semantic_embed.hosted.OpenAIEmbedder", _FakeEmbedder)
     response = _semantic_client(monkeypatch).post(
         "/v1/chunk/semantic",
         files={"file": ("notes.txt", b"Warm the lamp.\n\nRead the meter.\n", "text/plain")},
@@ -279,7 +282,7 @@ def test_a_failed_embedding_does_not_reveal_the_key(monkeypatch):
             return []
 
     monkeypatch.setattr(settings, "openai_api_key", SecretStr("sk-server"))
-    monkeypatch.setattr("ragbytes.chunk.semantic.hosted.OpenAIEmbedder", _Boom)
+    monkeypatch.setattr("ragbytes.chunk.semantic_embed.hosted.OpenAIEmbedder", _Boom)
     response = _semantic_client(monkeypatch).post(
         "/v1/chunk/semantic",
         files={"file": ("notes.txt", b"Warm the lamp.\n\nRead the meter.\n", "text/plain")},
@@ -287,3 +290,60 @@ def test_a_failed_embedding_does_not_reveal_the_key(monkeypatch):
     assert response.status_code == 502
     assert response.json()["detail"] == "The document could not be embedded."
     assert "sk-server" not in response.text
+
+
+def _llm_client(monkeypatch):
+    monkeypatch.setattr(settings, "llm_enabled", True)
+    return TestClient(create_app())
+
+
+def test_llm_is_unpublished_by_default():
+    client = TestClient(app)
+    response = client.post(
+        "/v1/chunk/llm",
+        files={"file": ("notes.txt", b"Warm the lamp.\n", "text/plain")},
+    )
+    assert response.status_code == 404
+    names = [method["name"] for method in client.get("/v1/methods").json()["methods"]]
+    assert "llm" not in names
+    assert "/v1/chunk/llm" not in client.get("/openapi.json").json()["paths"]
+    assert "/v1/chunk/llm" not in client.get("/openapi.json").json()["info"]["description"]
+
+
+def test_llm_without_a_key_is_unavailable(monkeypatch):
+    monkeypatch.setattr("ragbytes.api.routes._llm_api_key", lambda: "")
+    response = _llm_client(monkeypatch).post(
+        "/v1/chunk/llm",
+        files={"file": ("notes.txt", b"Warm the lamp.\n", "text/plain")},
+    )
+    assert response.status_code == 503
+    assert response.json()["detail"] == "LLM chunking is unavailable."
+
+
+def test_llm_returns_chunks_without_calling_the_model(monkeypatch):
+    monkeypatch.setattr("ragbytes.api.routes._llm_api_key", lambda: "sk-local")
+    monkeypatch.setitem(CHUNKERS, "llm", lambda sections, *, filename: [])
+    response = _llm_client(monkeypatch).post(
+        "/v1/chunk/llm",
+        files={"file": ("notes.txt", b"Warm the lamp.\n", "text/plain")},
+    )
+    assert response.status_code == 200
+    assert response.json()["chunks"] == []
+    assert "sk-local" not in response.text
+    names = [method["name"] for method in _llm_client(monkeypatch).get("/v1/methods").json()["methods"]]
+    assert names == ["basic", "structured", "llm"]
+
+
+def test_a_failed_llm_call_does_not_reveal_the_key(monkeypatch):
+    def _boom(sections, *, filename):
+        raise RuntimeError("Incorrect API key provided: sk-local")
+
+    monkeypatch.setattr("ragbytes.api.routes._llm_api_key", lambda: "sk-local")
+    monkeypatch.setitem(CHUNKERS, "llm", _boom)
+    response = _llm_client(monkeypatch).post(
+        "/v1/chunk/llm",
+        files={"file": ("notes.txt", b"Warm the lamp.\n", "text/plain")},
+    )
+    assert response.status_code == 502
+    assert response.json()["detail"] == "The document could not be chunked."
+    assert "sk-local" not in response.text

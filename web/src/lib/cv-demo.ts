@@ -126,6 +126,33 @@ export const DEMO_TIERS: Record<string, DemoTier> = {
       },
     ],
   },
+  llm: {
+    illustration: true,
+    explanation:
+      "LLM asks where the topic changes and names each chunk. An image, chart, table, or diagram would stay its own chunk instead of joining the sentences around it.",
+    chunks: [
+      {
+        sections: [0],
+        topic: "The handover",
+        why: "The opening note is one topic, so it stays its own chunk.",
+      },
+      {
+        sections: [1, 2],
+        topic: "The bread",
+        why: "The white loaves and the rye loaves are the same topic.",
+      },
+      {
+        sections: [3],
+        topic: "The till",
+        why: "The till is a new topic, so it starts a new chunk.",
+      },
+      {
+        sections: [4, 5],
+        topic: "Closing and the tax note",
+        why: "The model groups these two short notes. A real figure on the page would be a chunk of its own.",
+      },
+    ],
+  },
   enriched: {
     illustration: true,
     explanation:

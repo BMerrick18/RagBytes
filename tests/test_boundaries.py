@@ -1,8 +1,8 @@
 import math
 
-from ragbytes.chunk.semantic.boundaries import attach_fragments, cosine, cut_indexes, first_pass_cuts
-from ragbytes.chunk.semantic.embed_prep import PreparedSentence
-from ragbytes.chunk.semantic.styles import BALANCED
+from ragbytes.chunk.semantic_embed.boundaries import attach_fragments, cosine, cut_indexes, first_pass_cuts
+from ragbytes.chunk.semantic_embed.embed_prep import PreparedSentence
+from ragbytes.chunk.semantic_embed.styles import BALANCED
 
 
 def _alike(count: int, score: float) -> list[list[float]]:

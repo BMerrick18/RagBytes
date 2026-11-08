@@ -182,7 +182,9 @@ export function RagByteApp() {
           <span className="font-semibold text-zinc-200">No data is stored.</span> Your files are processed in memory
           and discarded as soon as the chunks are returned.
           {isOffered("semantic") &&
-            " Semantic sends the passage text to OpenAI for the comparison, then discards that too."}{" "}
+            " Semantic sends the passage text to OpenAI for the comparison, then discards that too."}
+          {isOffered("llm") &&
+            " LLM chunking sends the text and any pictures to OpenAI, using the key on this computer, then discards them too."}{" "}
           <Link href="/privacy" className="text-zinc-400 underline underline-offset-4 hover:text-zinc-200">
             Privacy
           </Link>

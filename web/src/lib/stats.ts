@@ -31,6 +31,7 @@ export function chunkStats(chunks: Chunk[]): ChunkStats {
   const pages = new Set<number>();
   for (const chunk of chunks) {
     formats[chunk.metadata.format] = (formats[chunk.metadata.format] ?? 0) + 1;
+    for (const page of chunk.metadata.pages ?? []) pages.add(page);
     if (chunk.metadata.page !== null) pages.add(chunk.metadata.page);
   }
   const buckets = BUCKETS.map((bucket) => ({ label: bucket.label, count: 0 }));

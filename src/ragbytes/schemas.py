@@ -77,10 +77,22 @@ class ChunkMetadata(BaseModel):
         default=None,
         description="The document's title, such as the name at the top of a CV, when one heading sits above all the others.",
     )
+    topic: str | None = Field(
+        default=None,
+        description="The short topic name from a model, when this chunk was cut that way. Null for other tiers.",
+    )
     headings: list[str] = Field(default_factory=list)
     heading: str | None = None
     subheading: str | None = None
+    heading_paths: list[list[str]] = Field(
+        default_factory=list,
+        description="Heading paths this chunk covers, in file order. Each path is outer heading first, and the same path is stored once.",
+    )
     page: int | None = None
+    pages: list[int] = Field(
+        default_factory=list,
+        description="Pages this chunk covers, in file order. The same page is stored once.",
+    )
     format: SectionKind
     media_type: str | None = None
     details: ChunkDetails

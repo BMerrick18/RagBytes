@@ -8,10 +8,16 @@ export interface ChunkMetadata {
   chunk_number: number;
   /** The document's title, such as the name at the top of a CV. It is not repeated in `headings`. */
   title?: string | null;
+  /** The model's short topic name. Null when this tier does not name topics. */
+  topic?: string | null;
   headings: string[];
   heading: string | null;
   subheading: string | null;
+  /** Heading paths this chunk covers, in file order. Each path is outer heading first. */
+  heading_paths?: string[][];
   page: number | null;
+  /** Pages this chunk covers, in file order. */
+  pages?: number[];
   format: ChunkFormat;
   media_type: string | null;
   details: { start: number; end: number };
