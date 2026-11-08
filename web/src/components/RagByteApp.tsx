@@ -19,7 +19,7 @@ import {
   type SemanticOptions,
 } from "@/lib/semantic";
 import { formatNumber } from "@/lib/stats";
-import { isAccepted, TIERS } from "@/lib/tiers";
+import { isAccepted, isOffered, TIERS } from "@/lib/tiers";
 import type { ChunkResponse, Job } from "@/lib/types";
 
 async function chunkFile(file: File, tier: string, semantic?: SemanticOptions): Promise<ChunkResponse> {
@@ -180,8 +180,9 @@ export function RagByteApp() {
         <Dropzone onFiles={addFiles} disabled={running} />
         <p className="text-sm text-zinc-500">
           <span className="font-semibold text-zinc-200">No data is stored.</span> Your files are processed in memory
-          and discarded as soon as the chunks are returned. Semantic sends the passage text to OpenAI for the
-          comparison, then discards that too.{" "}
+          and discarded as soon as the chunks are returned.
+          {isOffered("semantic") &&
+            " Semantic sends the passage text to OpenAI for the comparison, then discards that too."}{" "}
           <Link href="/privacy" className="text-zinc-400 underline underline-offset-4 hover:text-zinc-200">
             Privacy
           </Link>

@@ -85,8 +85,10 @@ echo "API_WORKERS=1" > /opt/ragbyte/dev/.env
 echo "RAGBYTES_OPENAI_API_KEY=" >> /opt/ragbyte/dev/.env
 ```
 
-Put the OpenAI key in `RAGBYTES_OPENAI_API_KEY` on each stack that should offer semantic chunking.
-The key stays in that file. Requests do not carry one. Leave the line empty and that tier returns 503.
+Semantic chunking is unpublished. `RAGBYTES_SEMANTIC_ENABLED` defaults to false, so
+`POST /v1/chunk/semantic` is not served. To offer it again, set that to true and put the OpenAI key in
+`RAGBYTES_OPENAI_API_KEY`. The key stays in that file. Requests do not carry one. The website also hides
+the tier until it is marked listed and available in `web/src/lib/tiers.ts`.
 
 ### 5. Deploy
 

@@ -5,7 +5,7 @@ import { ApiPlayground } from "@/components/ApiPlayground";
 import { EndpointRow } from "@/components/EndpointRow";
 import { Code, CodeBlock, DocSection, PageShell } from "@/components/PageShell";
 import { RunnableGet } from "@/components/RunnableGet";
-import { ACCEPTED_EXTENSIONS, TIERS } from "@/lib/tiers";
+import { ACCEPTED_EXTENSIONS, isOffered, LISTED_TIERS } from "@/lib/tiers";
 
 export const metadata: Metadata = {
   title: "API docs",
@@ -83,24 +83,27 @@ async function ApiDocs() {
 
       <DocSection title="Chunking endpoints">
         <p>
-          Each tier takes the same file upload and returns the same response. Semantic sends the passage text to
-          OpenAI to find the cuts, then discards it. Supported file types:{" "}
-          {ACCEPTED_EXTENSIONS.join(", ")}.
+          Each tier takes the same file upload and returns the same response.{" "}
+          {isOffered("semantic") &&
+            "Semantic sends the passage text to OpenAI to find the cuts, then discards it. "}
+          Supported file types: {ACCEPTED_EXTENSIONS.join(", ")}.
         </p>
         <ul className="flex flex-col divide-y divide-zinc-800 rounded-xl border border-zinc-800 bg-zinc-900/40">
-          {TIERS.map((tier) => (
+          {LISTED_TIERS.map((tier) => (
             <EndpointRow key={tier.id} verb="POST" path={`/v1/chunk/${tier.id}`} soon={!tier.available}>
               <span className="font-medium text-zinc-100">{tier.name}.</span> {tier.description}
             </EndpointRow>
           ))}
         </ul>
-        <p>
-          Semantic also takes optional form fields. <Code>style</Code> is <Code>precise</Code> for small, focused
-          chunks, <Code>balanced</Code> (the default) for general search, or <Code>broad</Code> for larger chunks
-          that keep more context. <Code>strict_headings=true</Code> stops very short neighbouring headings from
-          sharing a chunk. <Code>max_chunk_chars</Code> caps the chunk size, from 500 to 8,000 characters. The
-          response repeats the settings it used under <Code>options</Code>.
-        </p>
+        {isOffered("semantic") && (
+          <p>
+            Semantic also takes optional form fields. <Code>style</Code> is <Code>precise</Code> for small, focused
+            chunks, <Code>balanced</Code> (the default) for general search, or <Code>broad</Code> for larger chunks
+            that keep more context. <Code>strict_headings=true</Code> stops very short neighbouring headings from
+            sharing a chunk. <Code>max_chunk_chars</Code> caps the chunk size, from 500 to 8,000 characters. The
+            response repeats the settings it used under <Code>options</Code>.
+          </p>
+        )}
       </DocSection>
 
       <DocSection title="Other endpoints">
@@ -155,9 +158,13 @@ async function ApiDocs() {
           <Status code="404">No such tier, or the tier isn&apos;t available yet.</Status>
           <Status code="413">The upload is over 50 MB.</Status>
           <Status code="415">The filename suffix isn&apos;t a supported file type.</Status>
-          <Status code="422">A semantic option is not one of the allowed values.</Status>
-          <Status code="502">Semantic could not embed the document. The file was discarded.</Status>
-          <Status code="503">Semantic chunking is not configured on the server.</Status>
+          {isOffered("semantic") && (
+            <>
+              <Status code="422">A semantic option is not one of the allowed values.</Status>
+              <Status code="502">Semantic could not embed the document. The file was discarded.</Status>
+              <Status code="503">Semantic chunking is not configured on the server.</Status>
+            </>
+          )}
           <Status code="429">
             More than 10 chunking requests in 10 seconds from your address. Wait 10 seconds and retry.
           </Status>

@@ -3,7 +3,7 @@ from pydantic import SecretStr
 
 from ragbytes.chunk.registry import CHUNKERS
 from ragbytes.config import settings
-from ragbytes.main import app
+from ragbytes.main import app, create_app
 
 
 class _FakeEmbedder:
@@ -27,7 +27,6 @@ def test_methods_lists_chunkers_and_file_types():
     assert [(method["name"], method["path"]) for method in body["methods"]] == [
         ("basic", "/v1/chunk/basic"),
         ("structured", "/v1/chunk/structured"),
-        ("semantic", "/v1/chunk/semantic"),
     ]
     assert all(method["description"] for method in body["methods"])
     assert ".pdf" in body["file_types"]
@@ -40,14 +39,11 @@ def test_openapi_documents_public_routes():
     assert set(spec["paths"]) == {
         "/v1/chunk/basic",
         "/v1/chunk/structured",
-        "/v1/chunk/semantic",
         "/v1/methods",
         "/v1/stats",
         "/health",
     }
-    semantic = spec["paths"]["/v1/chunk/semantic"]["post"]
-    assert list(semantic["requestBody"]["content"]) == ["multipart/form-data"]
-    assert "api_key" not in semantic["requestBody"]["content"]["multipart/form-data"]["schema"].get("properties", {})
+    assert "/v1/chunk/semantic" not in spec["info"]["description"]
     structured = spec["paths"]["/v1/chunk/structured"]["post"]
     assert structured["tags"] == ["chunking"]
     assert list(structured["requestBody"]["content"]) == ["multipart/form-data"]
@@ -169,9 +165,34 @@ def test_upload_returns_chunks_in_file_order():
         assert joined[start:end] == chunk["content"]
 
 
+def _semantic_client(monkeypatch):
+    monkeypatch.setattr(settings, "semantic_enabled", True)
+    return TestClient(create_app())
+
+
+def test_semantic_is_unpublished_by_default():
+    client = TestClient(app)
+    response = client.post(
+        "/v1/chunk/semantic",
+        files={"file": ("notes.txt", b"Warm the lamp.\n", "text/plain")},
+    )
+    assert response.status_code == 404
+    names = [method["name"] for method in client.get("/v1/methods").json()["methods"]]
+    assert "semantic" not in names
+    assert "/v1/chunk/semantic" not in client.get("/openapi.json").json()["paths"]
+
+
+def test_openapi_documents_semantic_when_enabled(monkeypatch):
+    spec = _semantic_client(monkeypatch).get("/openapi.json").json()
+    semantic = spec["paths"]["/v1/chunk/semantic"]["post"]
+    assert list(semantic["requestBody"]["content"]) == ["multipart/form-data"]
+    assert "api_key" not in semantic["requestBody"]["content"]["multipart/form-data"]["schema"].get("properties", {})
+    assert "/v1/chunk/semantic" in spec["info"]["description"]
+
+
 def test_semantic_without_a_server_key_is_unavailable(monkeypatch):
     monkeypatch.setattr(settings, "openai_api_key", SecretStr(""))
-    response = TestClient(app).post(
+    response = _semantic_client(monkeypatch).post(
         "/v1/chunk/semantic",
         files={"file": ("notes.txt", b"Warm the lamp.\n\nRead the meter.\n", "text/plain")},
     )
@@ -198,7 +219,7 @@ def test_semantic_uses_the_server_key_and_returns_chunks(monkeypatch):
     )
     monkeypatch.setattr(settings, "openai_api_key", SecretStr("sk-server"))
     monkeypatch.setattr("ragbytes.chunk.semantic.hosted.OpenAIEmbedder", _Capture)
-    response = TestClient(app).post(
+    response = _semantic_client(monkeypatch).post(
         "/v1/chunk/semantic",
         files={"file": ("notes.txt", f"{lamp}\n\n{tariff}\n".encode(), "text/plain")},
     )
@@ -212,7 +233,7 @@ def test_semantic_uses_the_server_key_and_returns_chunks(monkeypatch):
 def test_semantic_reports_the_default_options(monkeypatch):
     monkeypatch.setattr(settings, "openai_api_key", SecretStr("sk-server"))
     monkeypatch.setattr("ragbytes.chunk.semantic.hosted.OpenAIEmbedder", _FakeEmbedder)
-    response = TestClient(app).post(
+    response = _semantic_client(monkeypatch).post(
         "/v1/chunk/semantic",
         files={"file": ("notes.txt", b"Warm the lamp.\n\nRead the meter.\n", "text/plain")},
     )
@@ -229,7 +250,7 @@ def test_semantic_accepts_a_style_and_overrides(monkeypatch):
 
     monkeypatch.setattr(settings, "openai_api_key", SecretStr("sk-server"))
     monkeypatch.setitem(CHUNKERS, "semantic", _capture)
-    response = TestClient(app).post(
+    response = _semantic_client(monkeypatch).post(
         "/v1/chunk/semantic",
         files={"file": ("notes.txt", b"Warm the lamp.\n", "text/plain")},
         data={"style": "precise", "strict_headings": "true", "max_chunk_chars": "900"},
@@ -242,7 +263,7 @@ def test_semantic_accepts_a_style_and_overrides(monkeypatch):
 
 def test_semantic_rejects_an_unknown_style_or_size(monkeypatch):
     monkeypatch.setattr(settings, "openai_api_key", SecretStr("sk-server"))
-    client = TestClient(app)
+    client = _semantic_client(monkeypatch)
     file = {"file": ("notes.txt", b"Warm the lamp.\n", "text/plain")}
 
     assert client.post("/v1/chunk/semantic", files=file, data={"style": "aggressive"}).status_code == 422
@@ -259,7 +280,7 @@ def test_a_failed_embedding_does_not_reveal_the_key(monkeypatch):
 
     monkeypatch.setattr(settings, "openai_api_key", SecretStr("sk-server"))
     monkeypatch.setattr("ragbytes.chunk.semantic.hosted.OpenAIEmbedder", _Boom)
-    response = TestClient(app).post(
+    response = _semantic_client(monkeypatch).post(
         "/v1/chunk/semantic",
         files={"file": ("notes.txt", b"Warm the lamp.\n\nRead the meter.\n", "text/plain")},
     )
