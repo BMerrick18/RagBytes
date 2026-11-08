@@ -1,8 +1,9 @@
-"""Turn document text into numbered sentences for a later split-point question."""
+"""Turn a document into prose sentences and whole figures for a later model call."""
 
 import re
 from dataclasses import dataclass
 
+from ragbytes.chunk.assemble import _media_is_text, titled_path
 from ragbytes.chunk.semantic_embed.embed_prep import (
     _join_lines,
     _newlines,
@@ -10,7 +11,10 @@ from ragbytes.chunk.semantic_embed.embed_prep import (
 )
 from ragbytes.schemas import Section, SectionKind
 
-_WHOLE_KINDS = frozenset({"image", "chart", "complex"})
+_FIGURE_KINDS = frozenset({"image", "chart", "table", "complex"})
+_BARE_MARKERS = frozenset({"[Image]", "[Chart]", "[Complex]"})
+# Picture types the figure-title call can be shown.
+_VISION_TYPES = frozenset({"image/png", "image/jpeg", "image/gif", "image/webp"})
 
 
 @dataclass
@@ -56,29 +60,142 @@ class TaggedSentence:
 
 
 def tag_sentences(sections: list[Section]) -> list[TaggedSentence]:
-    """Split each section into sentences and keep that section's metadata on each one.
+    """Split each prose section into sentences and keep that section's metadata.
 
-    Images, charts, and complex regions are left out. They have no prose to
-    number. The returned list is in file order.
+    Images, charts, tables, and complex regions are left out. Each of those
+    is its own chunk. The returned list is in file order.
     """
     tagged: list[TaggedSentence] = []
     for section in sorted(sections, key=lambda section: section.index):
-        if section.kind in _WHOLE_KINDS:
+        if section.kind in _FIGURE_KINDS:
             continue
         for sentence in _document_sentences(section.data):
-            tagged.append(
-                TaggedSentence(
-                    text=sentence,
-                    title=section.title,
-                    headings=list(section.headings),
-                    heading=section.heading,
-                    subheading=section.subheading,
-                    page=section.page,
-                    kind=section.kind,
-                    file_id=section.file_id,
-                )
-            )
+            tagged.append(_tagged(section, sentence))
     return tagged
+
+
+@dataclass
+class ProseRun:
+    """Consecutive prose sentences that sit between figures.
+
+    The model may cut these into several topics. A figure is never one of
+    these sentences.
+    """
+
+    sentences: list[TaggedSentence]
+
+
+@dataclass
+class FigureUnit:
+    """One image, chart, table, or complex region, in file order.
+
+    A diagram extracted from a page is an image section, so it arrives here.
+    """
+
+    section: Section
+
+
+def segment_sections(sections: list[Section]) -> list[ProseRun | FigureUnit]:
+    """Split a document into prose runs and whole figures, in file order.
+
+    A figure ends the prose run before it and starts a new one after it, so
+    the topic call never sees it among the sentences. A bare ``[Image]``,
+    ``[Chart]``, or ``[Complex]`` with no bytes is left out and does not
+    split the prose around it. Text, lists, and code stay prose.
+    """
+    units: list[ProseRun | FigureUnit] = []
+    prose: list[TaggedSentence] = []
+
+    def flush() -> None:
+        if prose:
+            units.append(ProseRun(list(prose)))
+            prose.clear()
+
+    for section in sorted(sections, key=lambda section: section.index):
+        if section.kind in _FIGURE_KINDS:
+            if not _keep_figure(section):
+                continue
+            flush()
+            units.append(FigureUnit(section))
+            continue
+        for sentence in _document_sentences(section.data):
+            prose.append(_tagged(section, sentence))
+    flush()
+    return units
+
+
+def figure_message(section: Section) -> tuple[str, bytes | None, str | None]:
+    """Return the text and picture one figure-title call sends.
+
+    A picture is returned only for png, jpeg, gif, or webp bytes. The text
+    sent with a picture is the label, the document title and heading path,
+    and the page. A bare marker is left out of that text. A table or a chart
+    with no picture sends its own text and not the headings around it.
+    """
+    body = _figure_body(section)
+    media, media_type = _vision_bytes(section)
+    if media is None:
+        return body, None, None
+    lines: list[str] = []
+    if body:
+        lines.append(body)
+    path = " > ".join(titled_path(section.title, section.headings))
+    if path:
+        lines.append(path)
+    if section.page is not None:
+        lines.append(f"Page {section.page}")
+    return "\n".join(lines), media, media_type
+
+
+def _tagged(section: Section, sentence: str) -> TaggedSentence:
+    return TaggedSentence(
+        text=sentence,
+        title=section.title,
+        headings=list(section.headings),
+        heading=section.heading,
+        subheading=section.subheading,
+        page=section.page,
+        kind=section.kind,
+        file_id=section.file_id,
+    )
+
+
+def _keep_figure(section: Section) -> bool:
+    """A figure stays when it has bytes, or text that is more than a bare marker.
+
+    A table has no marker. Its text is enough. A bare ``[Image]``, ``[Chart]``,
+    or ``[Complex]`` with no bytes is left out.
+    """
+    if section.media:
+        return True
+    label = section.data.strip()
+    if not label:
+        return False
+    if section.kind == "table":
+        return True
+    return label not in _BARE_MARKERS
+
+
+def _figure_body(section: Section) -> str:
+    body = section.data.strip()
+    if body in _BARE_MARKERS:
+        body = ""
+    if section.media and _media_is_text(section.media_type):
+        decoded = section.media.decode("utf-8").strip()
+        if decoded and decoded != body:
+            body = "\n".join(part for part in (body, decoded) if part)
+    return body
+
+
+def _vision_bytes(section: Section) -> tuple[bytes | None, str | None]:
+    if not section.media or _media_is_text(section.media_type):
+        return None, None
+    media_type = section.media_type or "image/png"
+    if media_type == "image/jpg":
+        media_type = "image/jpeg"
+    if media_type not in _VISION_TYPES:
+        return None, None
+    return section.media, media_type
 
 
 def _document_sentences(text: str) -> list[str]:

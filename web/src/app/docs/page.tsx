@@ -178,6 +178,12 @@ async function ApiDocs() {
               <Status code="503">Semantic chunking is not configured on the server.</Status>
             </>
           )}
+          {isOffered("llm") && (
+            <>
+              <Status code="502">LLM chunking could not ask the model. The file was discarded.</Status>
+              <Status code="503">LLM chunking has no OpenAI key on this computer.</Status>
+            </>
+          )}
           <Status code="429">
             More than 10 chunking requests in 10 seconds from your address. Wait 10 seconds and retry.
           </Status>

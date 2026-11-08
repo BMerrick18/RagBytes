@@ -290,3 +290,60 @@ def test_a_failed_embedding_does_not_reveal_the_key(monkeypatch):
     assert response.status_code == 502
     assert response.json()["detail"] == "The document could not be embedded."
     assert "sk-server" not in response.text
+
+
+def _llm_client(monkeypatch):
+    monkeypatch.setattr(settings, "llm_enabled", True)
+    return TestClient(create_app())
+
+
+def test_llm_is_unpublished_by_default():
+    client = TestClient(app)
+    response = client.post(
+        "/v1/chunk/llm",
+        files={"file": ("notes.txt", b"Warm the lamp.\n", "text/plain")},
+    )
+    assert response.status_code == 404
+    names = [method["name"] for method in client.get("/v1/methods").json()["methods"]]
+    assert "llm" not in names
+    assert "/v1/chunk/llm" not in client.get("/openapi.json").json()["paths"]
+    assert "/v1/chunk/llm" not in client.get("/openapi.json").json()["info"]["description"]
+
+
+def test_llm_without_a_key_is_unavailable(monkeypatch):
+    monkeypatch.setattr("ragbytes.api.routes._llm_api_key", lambda: "")
+    response = _llm_client(monkeypatch).post(
+        "/v1/chunk/llm",
+        files={"file": ("notes.txt", b"Warm the lamp.\n", "text/plain")},
+    )
+    assert response.status_code == 503
+    assert response.json()["detail"] == "LLM chunking is unavailable."
+
+
+def test_llm_returns_chunks_without_calling_the_model(monkeypatch):
+    monkeypatch.setattr("ragbytes.api.routes._llm_api_key", lambda: "sk-local")
+    monkeypatch.setitem(CHUNKERS, "llm", lambda sections, *, filename: [])
+    response = _llm_client(monkeypatch).post(
+        "/v1/chunk/llm",
+        files={"file": ("notes.txt", b"Warm the lamp.\n", "text/plain")},
+    )
+    assert response.status_code == 200
+    assert response.json()["chunks"] == []
+    assert "sk-local" not in response.text
+    names = [method["name"] for method in _llm_client(monkeypatch).get("/v1/methods").json()["methods"]]
+    assert names == ["basic", "structured", "llm"]
+
+
+def test_a_failed_llm_call_does_not_reveal_the_key(monkeypatch):
+    def _boom(sections, *, filename):
+        raise RuntimeError("Incorrect API key provided: sk-local")
+
+    monkeypatch.setattr("ragbytes.api.routes._llm_api_key", lambda: "sk-local")
+    monkeypatch.setitem(CHUNKERS, "llm", _boom)
+    response = _llm_client(monkeypatch).post(
+        "/v1/chunk/llm",
+        files={"file": ("notes.txt", b"Warm the lamp.\n", "text/plain")},
+    )
+    assert response.status_code == 502
+    assert response.json()["detail"] == "The document could not be chunked."
+    assert "sk-local" not in response.text

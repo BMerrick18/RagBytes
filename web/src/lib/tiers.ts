@@ -40,6 +40,15 @@ export const TIERS: Tier[] = [
     listed: true,
   },
   {
+    id: "llm",
+    name: "LLM",
+    tagline: "Splits where the topic changes",
+    description:
+      "Asks a language model where the topic changes and names each chunk. An image, chart, table, or diagram stays its own chunk. The text and pictures are sent to OpenAI and then discarded.",
+    available: process.env.NEXT_PUBLIC_RAGBYTE_LLM_ENABLED === "true",
+    listed: process.env.NEXT_PUBLIC_RAGBYTE_LLM_ENABLED === "true",
+  },
+  {
     id: "enriched",
     name: "Enriched",
     tagline: "Adds context with a language model",

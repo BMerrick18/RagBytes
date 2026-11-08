@@ -64,10 +64,13 @@ ERRORS: dict[int | str, dict] = {
 
 
 def published_tiers() -> list[str]:
-    """Tier names currently served. Semantic stays implemented and is omitted while switched off."""
-    if settings.semantic_enabled:
-        return list(CHUNKERS)
-    return [name for name in CHUNKERS if name != "semantic"]
+    """Tier names currently served. Semantic and LLM stay implemented and are omitted while switched off."""
+    hidden = set()
+    if not settings.semantic_enabled:
+        hidden.add("semantic")
+    if not settings.llm_enabled:
+        hidden.add("llm")
+    return [name for name in CHUNKERS if name not in hidden]
 
 
 @router.get("/methods", tags=["service"])
@@ -147,6 +150,47 @@ def semantic_routes() -> APIRouter:
         )
 
     return semantic
+
+
+def _llm_api_key() -> str:
+    """The local OpenAI key, from the environment or a project ``.env``."""
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        pass
+    else:
+        load_dotenv()
+    import os
+
+    return os.getenv("OPENAI_API_KEY", "").strip()
+
+
+def llm_routes() -> APIRouter:
+    """The LLM endpoint, mounted only while that tier is published."""
+    llm = APIRouter()
+
+    @llm.post(
+        "/chunk/llm",
+        tags=["chunking"],
+        summary="LLM: splits where the topic changes",
+        description=DESCRIPTIONS["llm"],
+        responses={
+            **ERRORS,
+            502: {"model": ErrorResponse, "description": "The document could not be chunked."},
+            503: {"model": ErrorResponse, "description": "LLM chunking is not configured."},
+        },
+    )
+    async def chunk_with_llm(upload: Upload) -> ChunkResponse:
+        if not _llm_api_key():
+            raise HTTPException(status_code=503, detail="LLM chunking is unavailable.")
+        try:
+            return await _chunk(upload.file, CHUNKERS["llm"])
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail="The document could not be chunked.") from exc
+
+    return llm
 
 
 async def _chunk(file: UploadFile, chunker: Chunker) -> ChunkResponse:

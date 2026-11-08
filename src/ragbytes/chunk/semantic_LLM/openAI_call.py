@@ -1,19 +1,11 @@
-"""Ask a model where the numbered sentences change topic."""
+"""Ask a model where the numbered sentences change topic, and name a figure."""
 
-from openai import OpenAI
-from dotenv import load_dotenv
-import os
-
-load_dotenv()
-
-api_key = os.getenv("OPENAI_API_KEY")
-if not api_key:
-    raise RuntimeError("OPENAI_API_KEY is missing. Add it to .env in the project root.")
-client = OpenAI(api_key=api_key)
-
-
+import base64
 import json
 from dataclasses import dataclass
+
+from ragbytes.chunk.semantic_LLM.text_prep import figure_message
+from ragbytes.schemas import Section
 
 # A dated name stays one model. An undated name can later point at a newer one.
 DEFAULT_MODEL = "gpt-4o-mini-2024-07-18"
@@ -68,12 +60,12 @@ def ask_for_splits(numbered: str, *, model: str = DEFAULT_MODEL) -> list[SplitPo
     """Ask for the sentence indexes where a new topic starts.
 
     ``numbered`` is the view from ``number_sentences``. An empty view makes
-    no request. The call uses the module ``client``, which was built from
-    ``OPENAI_API_KEY`` in ``.env``.
+    no request. The call reads ``OPENAI_API_KEY`` from the environment,
+    loading ``.env`` on first use.
     """
     if not numbered.strip():
         return []
-    response = client.chat.completions.create(
+    response = _require_client().chat.completions.create(
         model=model,
         temperature=0,
         messages=[
@@ -90,6 +82,134 @@ def ask_for_splits(numbered: str, *, model: str = DEFAULT_MODEL) -> list[SplitPo
         },
     )
     return _read_splits(response)
+
+
+_FIGURE_INSTRUCTIONS = """\
+You name one figure from a document.
+
+The user message is that figure.
+It may include a picture, a chart, a table, or a diagram.
+title is a short topic name of a few words.
+
+Do not describe the figure and do not transcribe it.
+"""
+
+_FIGURE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "title": {"type": "string"},
+    },
+    "required": ["title"],
+    "additionalProperties": False,
+}
+
+_client = None
+
+
+def _require_client():
+    """Return the local client, building it from ``OPENAI_API_KEY`` on first use."""
+    global _client
+    if _client is not None:
+        return _client
+    import os
+
+    from dotenv import load_dotenv
+    from openai import OpenAI
+
+    load_dotenv()
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "OPENAI_API_KEY is missing. Add it to .env in the project root."
+        )
+    _client = OpenAI(api_key=api_key)
+    return _client
+
+
+def title_figure(section: Section, *, model: str = DEFAULT_MODEL) -> str:
+    """Ask for a short topic title for one figure.
+
+    A picture is sent when the figure has png, jpeg, gif, or webp bytes.
+    Otherwise the figure's text is sent. Nothing is stored. A refusal or a
+    blank title returns an empty string.
+    """
+    text, media, media_type = figure_message(section)
+    return ask_for_figure_title(text, media=media, media_type=media_type, model=model)
+
+
+def ask_for_figure_title(
+    text: str,
+    *,
+    media: bytes | None = None,
+    media_type: str | None = None,
+    model: str = DEFAULT_MODEL,
+) -> str:
+    """Ask for a short topic title for one figure.
+
+    ``text`` is the label or the table. ``media`` is the picture bytes when
+    there is one. An empty figure makes no request. A refusal or a blank
+    title returns "".
+    """
+    if not text.strip() and not media:
+        return ""
+    response = _require_client().chat.completions.create(
+        model=model,
+        temperature=0,
+        messages=[
+            {"role": "system", "content": _FIGURE_INSTRUCTIONS},
+            {"role": "user", "content": _user_content(text, media, media_type)},
+        ],
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "figure_title",
+                "strict": True,
+                "schema": _FIGURE_SCHEMA,
+            },
+        },
+    )
+    return _read_title(response)
+
+
+def read_figure_title(content: str | None, refusal: str | None = None) -> str:
+    """Return the topic from a figure-title reply.
+
+    A refusal, an empty reply, a reply that is not JSON, or a title that is
+    not text returns "".
+    """
+    if refusal or not content:
+        return ""
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError:
+        return ""
+    if not isinstance(parsed, dict):
+        return ""
+    title = parsed.get("title")
+    if not isinstance(title, str):
+        return ""
+    return title.strip()
+
+
+def _user_content(
+    text: str, media: bytes | None, media_type: str | None
+) -> str | list[dict]:
+    if not media:
+        return text
+    parts: list[dict] = []
+    if text:
+        parts.append({"type": "text", "text": text})
+    encoded = base64.b64encode(media).decode("ascii")
+    mime = media_type or "image/png"
+    parts.append(
+        {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{encoded}"}}
+    )
+    return parts
+
+
+def _read_title(response) -> str:
+    message = response.choices[0].message
+    return read_figure_title(message.content, message.refusal)
 
 
 def _read_splits(response) -> list[SplitPoint]:

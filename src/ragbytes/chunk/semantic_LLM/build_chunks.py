@@ -2,9 +2,14 @@
 
 from dataclasses import dataclass
 
-from ragbytes.chunk.assemble import titled_path
-from ragbytes.chunk.semantic_LLM.text_prep import TaggedSentence
-from ragbytes.schemas import Chunk, ChunkDetails, ChunkMetadata, SectionKind
+from ragbytes.chunk.assemble import (
+    _content,
+    _embed_text as _section_embed_text,
+    _offset_text,
+    titled_path,
+)
+from ragbytes.chunk.semantic_LLM.text_prep import FigureUnit, ProseRun, TaggedSentence
+from ragbytes.schemas import Chunk, ChunkDetails, ChunkMetadata, Section, SectionKind
 
 
 @dataclass
@@ -58,20 +63,85 @@ def build_chunk_records(
     embed text as the other tiers. A slice that crosses paths writes each
     path once, above the sentences that came from it.
     """
+    records, _cursor = _prose_records(
+        sentences,
+        splits,
+        filename=filename,
+        cursor=0,
+        chunk_number=0,
+        leading_gap=False,
+    )
+    return records
+
+
+def assemble_llm_chunks(
+    units: list[ProseRun | FigureUnit],
+    prose_splits: list[list[tuple[int, str]]],
+    figure_topics: list[str],
+    *,
+    filename: str,
+) -> list[Chunk]:
+    """Join prose cuts and figure chunks in file order.
+
+    ``prose_splits`` has one checked split list per prose run, in the same
+    order as those runs. ``figure_topics`` has one title per figure. A blank
+    title is stored as null. Chunk numbers and text offsets continue across
+    both kinds. A figure's bytes use its label for the offset, and its title
+    stays in metadata.
+    """
+    records: list[Chunk] = []
+    cursor = 0
+    prose_index = 0
+    figure_index = 0
+    for unit in units:
+        leading = bool(records)
+        if isinstance(unit, ProseRun):
+            part, cursor = _prose_records(
+                unit.sentences,
+                prose_splits[prose_index],
+                filename=filename,
+                cursor=cursor,
+                chunk_number=len(records),
+                leading_gap=leading,
+            )
+            prose_index += 1
+            records.extend(part)
+            continue
+        chunk, cursor = _figure_record(
+            unit.section,
+            figure_topics[figure_index],
+            filename=filename,
+            cursor=cursor,
+            chunk_number=len(records),
+            leading_gap=leading,
+        )
+        figure_index += 1
+        records.append(chunk)
+    return records
+
+
+def _prose_records(
+    sentences: list[TaggedSentence],
+    splits: list[tuple[int, str]],
+    *,
+    filename: str,
+    cursor: int,
+    chunk_number: int,
+    leading_gap: bool,
+) -> tuple[list[Chunk], int]:
     if not sentences:
-        return []
+        return [], cursor
     chosen = _usable_splits(len(sentences), splits)
     bounds = [start for start, _topic in chosen]
     bounds.append(len(sentences))
     topics = {start: topic for start, topic in chosen}
     records: list[Chunk] = []
-    cursor = 0
     for begin, end in zip(bounds, bounds[1:]):
         part = sentences[begin:end]
         if not part:
             continue
         content = " ".join(sentence.text for sentence in part)
-        if records:
+        if records or leading_gap:
             cursor += 2
         start = cursor
         cursor += len(content)
@@ -85,7 +155,7 @@ def build_chunk_records(
                 metadata=ChunkMetadata(
                     filename=filename,
                     file_id=first.file_id,
-                    chunk_number=len(records),
+                    chunk_number=chunk_number + len(records),
                     title=first.title,
                     topic=_topic(topics.get(begin, "")),
                     headings=list(first.headings),
@@ -99,7 +169,47 @@ def build_chunk_records(
                 ),
             )
         )
-    return records
+    return records, cursor
+
+
+def _figure_record(
+    section: Section,
+    topic: str,
+    *,
+    filename: str,
+    cursor: int,
+    chunk_number: int,
+    leading_gap: bool,
+) -> tuple[Chunk, int]:
+    content = _content(section)
+    placed = _offset_text(section, content)
+    if leading_gap:
+        cursor += 2
+    start = cursor
+    cursor += len(placed)
+    return (
+        Chunk(
+            content=content,
+            embed_text=_section_embed_text(section),
+            metadata=ChunkMetadata(
+                filename=filename,
+                file_id=section.file_id,
+                chunk_number=chunk_number,
+                title=section.title,
+                topic=_topic(topic),
+                headings=list(section.headings),
+                heading=section.heading,
+                subheading=section.subheading,
+                heading_paths=[list(section.headings)] if section.headings else [],
+                page=section.page,
+                pages=[section.page] if section.page is not None else [],
+                format=section.kind,
+                media_type=section.media_type if section.media else None,
+                details=ChunkDetails(start=start, end=cursor),
+            ),
+        ),
+        cursor,
+    )
 
 
 def _usable_splits(count: int, splits: list[tuple[int, str]]) -> list[tuple[int, str]]:

@@ -17,6 +17,8 @@ services:
       WEB_CONCURRENCY: ${API_WORKERS:-2}
       # Semantic stays implemented and unpublished until this is true. The website shows it grayed out.
       RAGBYTES_SEMANTIC_ENABLED: ${RAGBYTES_SEMANTIC_ENABLED:-false}
+      # LLM chunking stays off unless this is true. The website lists it only from a local env file.
+      RAGBYTES_LLM_ENABLED: ${RAGBYTES_LLM_ENABLED:-false}
       # Server key for semantic chunking. The browser never sends a key. Required once the tier is published.
       RAGBYTES_OPENAI_API_KEY: ${RAGBYTES_OPENAI_API_KEY:-}
       RAGBYTES_SEMANTIC_MODEL: ${RAGBYTES_SEMANTIC_MODEL:-text-embedding-3-small}

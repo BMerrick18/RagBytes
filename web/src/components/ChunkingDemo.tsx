@@ -153,9 +153,11 @@ export function ChunkingDemo({ tier, startOpen = false }: { tier: string; startO
               </div>
               {illustration && (
                 <p className="rounded-lg border border-dashed border-zinc-700 px-3 py-2 text-xs text-zinc-400">
-                  {LISTED_TIERS.find((option) => option.id === shown)?.available
+                  {shown === "semantic" && LISTED_TIERS.find((option) => option.id === shown)?.available
                     ? "Recorded from the live embeddings on this note, using the Balanced style. Uploading a different file runs the comparison again. A chunk stays inside its heading unless neighbouring headings are very short and on the same subject."
-                    : "Coming soon. This is an illustration of what the tier will do, not real output."}
+                    : shown === "llm"
+                      ? "An illustration. Uploading a file asks the model where the topics change."
+                      : "Coming soon. This is an illustration of what the tier will do, not real output."}
                 </p>
               )}
               <ol className="flex flex-col gap-2">
