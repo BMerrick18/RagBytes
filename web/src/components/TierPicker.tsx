@@ -1,6 +1,6 @@
 "use client";
 
-import { TIERS } from "@/lib/tiers";
+import { LISTED_TIERS } from "@/lib/tiers";
 
 function TierStrength({ level, className = "" }: { level: number; className?: string }) {
   return (
@@ -31,14 +31,15 @@ interface TierPickerProps {
 }
 
 export function TierPicker({ id, value, onChange, collapsed = false }: TierPickerProps) {
+  const wide = LISTED_TIERS.length > 3 ? "xl:grid-cols-4" : "xl:grid-cols-3";
   return (
     <div
       id={id}
       role="radiogroup"
       aria-label="Chunking tier"
-      className={collapsed ? "grid w-full grid-cols-2 gap-2" : "grid gap-3 sm:grid-cols-2 xl:grid-cols-4"}
+      className={collapsed ? "grid w-full grid-cols-2 gap-2" : `grid gap-3 sm:grid-cols-2 ${wide}`}
     >
-      {TIERS.map((tier, index) => {
+      {LISTED_TIERS.map((tier, index) => {
         const selected = tier.id === value;
         return (
           <button

@@ -5,7 +5,7 @@ import { CollapseButton } from "@/components/CollapseButton";
 import { DEMO_CV, DEMO_TIERS, type DemoChunk } from "@/lib/cv-demo";
 import { SAMPLE_DOCUMENT } from "@/lib/sample";
 import { formatNumber } from "@/lib/stats";
-import { TIERS } from "@/lib/tiers";
+import { LISTED_TIERS } from "@/lib/tiers";
 
 const STEP_MS = 900;
 
@@ -104,7 +104,7 @@ export function ChunkingDemo({ tier, startOpen = false }: { tier: string; startO
             aria-label="Tier to animate"
             className="flex flex-wrap gap-1 rounded-lg bg-zinc-950/60 p-1"
           >
-            {TIERS.map((option) => (
+            {LISTED_TIERS.map((option) => (
               <button
                 key={option.id}
                 type="button"
@@ -153,7 +153,7 @@ export function ChunkingDemo({ tier, startOpen = false }: { tier: string; startO
               </div>
               {illustration && (
                 <p className="rounded-lg border border-dashed border-zinc-700 px-3 py-2 text-xs text-zinc-400">
-                  {TIERS.find((option) => option.id === shown)?.available
+                  {LISTED_TIERS.find((option) => option.id === shown)?.available
                     ? "Recorded from the live embeddings on this note, using the Balanced style. Uploading a different file runs the comparison again. A chunk stays inside its heading unless neighbouring headings are very short and on the same subject."
                     : "Coming soon. This is an illustration of what the tier will do, not real output."}
                 </p>

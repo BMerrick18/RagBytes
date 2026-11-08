@@ -63,12 +63,20 @@ ERRORS: dict[int | str, dict] = {
 }
 
 
+def published_tiers() -> list[str]:
+    """Tier names currently served. Semantic stays implemented and is omitted while switched off."""
+    if settings.semantic_enabled:
+        return list(CHUNKERS)
+    return [name for name in CHUNKERS if name != "semantic"]
+
+
 @router.get("/methods", tags=["service"])
 def list_methods() -> MethodsResponse:
     """List the chunking tiers, the endpoint for each, and the file types this service accepts."""
     return MethodsResponse(
         methods=[
-            ChunkingMethod(name=name, path=f"/v1/chunk/{name}", description=DESCRIPTIONS[name]) for name in CHUNKERS
+            ChunkingMethod(name=name, path=f"/v1/chunk/{name}", description=DESCRIPTIONS[name])
+            for name in published_tiers()
         ],
         file_types=list(EXTRACTORS),
     )
@@ -102,37 +110,43 @@ async def chunk_structured(upload: Upload) -> ChunkResponse:
     return await _chunk(upload.file, CHUNKERS["structured"])
 
 
-@router.post(
-    "/chunk/semantic",
-    tags=["chunking"],
-    summary="Semantic: splits where the meaning changes",
-    description=DESCRIPTIONS["semantic"],
-    responses={
-        **ERRORS,
-        502: {"model": ErrorResponse, "description": "The document could not be embedded."},
-        503: {"model": ErrorResponse, "description": "Semantic chunking is not configured."},
-    },
-)
-async def chunk_semantic(upload: SemanticUpload) -> SemanticChunkResponse:
-    if not settings.openai_api_key.get_secret_value().strip():
-        raise HTTPException(status_code=503, detail="Semantic chunking is unavailable.")
-    style = resolve_style(upload.style, strict_headings=upload.strict_headings, max_chars=upload.max_chunk_chars)
-    try:
-        response = await _chunk(upload.file, partial(CHUNKERS["semantic"], style=style))
-    except SemanticNotConfigured as exc:
-        raise HTTPException(status_code=503, detail="Semantic chunking is unavailable.") from exc
-    except SemanticEmbedError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-    return SemanticChunkResponse(
-        filename=response.filename,
-        file_id=response.file_id,
-        chunks=response.chunks,
-        options=SemanticOptions(
-            style=style.name,
-            strict_headings=not style.merge_headings,
-            max_chunk_chars=style.max_chars,
-        ),
+def semantic_routes() -> APIRouter:
+    """The semantic endpoint, mounted only while that tier is published."""
+    semantic = APIRouter()
+
+    @semantic.post(
+        "/chunk/semantic",
+        tags=["chunking"],
+        summary="Semantic: splits where the meaning changes",
+        description=DESCRIPTIONS["semantic"],
+        responses={
+            **ERRORS,
+            502: {"model": ErrorResponse, "description": "The document could not be embedded."},
+            503: {"model": ErrorResponse, "description": "Semantic chunking is not configured."},
+        },
     )
+    async def chunk_semantic(upload: SemanticUpload) -> SemanticChunkResponse:
+        if not settings.openai_api_key.get_secret_value().strip():
+            raise HTTPException(status_code=503, detail="Semantic chunking is unavailable.")
+        style = resolve_style(upload.style, strict_headings=upload.strict_headings, max_chars=upload.max_chunk_chars)
+        try:
+            response = await _chunk(upload.file, partial(CHUNKERS["semantic"], style=style))
+        except SemanticNotConfigured as exc:
+            raise HTTPException(status_code=503, detail="Semantic chunking is unavailable.") from exc
+        except SemanticEmbedError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        return SemanticChunkResponse(
+            filename=response.filename,
+            file_id=response.file_id,
+            chunks=response.chunks,
+            options=SemanticOptions(
+                style=style.name,
+                strict_headings=not style.merge_headings,
+                max_chunk_chars=style.max_chars,
+            ),
+        )
+
+    return semantic
 
 
 async def _chunk(file: UploadFile, chunker: Chunker) -> ChunkResponse:

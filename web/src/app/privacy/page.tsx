@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DocSection, PageShell } from "@/components/PageShell";
+import { isOffered } from "@/lib/tiers";
 
 export const metadata: Metadata = {
   title: "Privacy",
@@ -22,11 +23,13 @@ export default function PrivacyPage() {
             discarded as soon as the response is sent.
           </li>
           <li>We don&apos;t read, sell, or train models on your documents or their chunks.</li>
-          <li>
-            Semantic chunking sends the passage text to OpenAI to decide where the meaning shifts. That text is
-            discarded with the file when the response is sent. RagBytes uses its own OpenAI key. You are not asked
-            for one. Basic and Structured stay on our server.
-          </li>
+          {isOffered("semantic") && (
+            <li>
+              Semantic chunking sends the passage text to OpenAI to decide where the meaning shifts. That text is
+              discarded with the file when the response is sent. RagBytes uses its own OpenAI key. You are not asked
+              for one. Basic and Structured stay on our server.
+            </li>
+          )}
           <li>Chunks are shown in your browser only. Closing or reloading the page clears them.</li>
         </ul>
       </DocSection>

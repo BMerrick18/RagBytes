@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { isOffered } from "@/lib/tiers";
 
 const STEP_MS = [1600, 1600, 2400];
 
@@ -12,7 +13,10 @@ const CHUNKS = [
 
 const STEPS = [
   { title: "Your document", text: "PDF, Word, web page, Markdown or text" },
-  { title: "We chunk it", text: "By size, by section, or by meaning" },
+  {
+    title: "We chunk it",
+    text: isOffered("semantic") ? "By size, by section, or by meaning" : "By size or by section",
+  },
   { title: "You get chunks back", text: "JSON with headings and pages, ready to embed" },
 ];
 

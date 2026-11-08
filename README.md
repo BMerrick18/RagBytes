@@ -16,11 +16,14 @@ pip install -e ".[dev]"
 uvicorn ragbytes.main:app --reload
 ```
 
-Semantic chunking needs `RAGBYTES_OPENAI_API_KEY` in the environment. The key stays on the server. `RAGBYTES_SEMANTIC_MODEL` picks the embedding model and defaults to `text-embedding-3-small`.
+Semantic chunking is switched off. The implementation remains, and it is not listed on the site or served at
+`POST /v1/chunk/semantic`. Set `RAGBYTES_SEMANTIC_ENABLED=true` and mark the semantic tier `listed` and
+`available` in `web/src/lib/tiers.ts` to publish it again. It also needs `RAGBYTES_OPENAI_API_KEY`. The key
+stays on the server. `RAGBYTES_SEMANTIC_MODEL` picks the embedding model and defaults to `text-embedding-3-small`.
 The request never carries a key. Passage text is sent to OpenAI and discarded with the file. Without the
 key, that endpoint returns 503 and the other tiers keep working.
 
-The semantic endpoint takes three optional form fields next to `file`:
+When semantic is published, its endpoint takes three optional form fields next to `file`:
 
 - `style`: `precise` (chunks up to about 1,200 characters, cut readily), `balanced` (the default, up to
   about 2,000), or `broad` (up to about 3,000, cut only at clear changes of subject).
@@ -29,8 +32,8 @@ The semantic endpoint takes three optional form fields next to `file`:
 
 The response repeats the settings used under `options`.
 
-Each chunking tier has its own endpoint taking a `file` upload: `POST /v1/chunk/basic`,
-`POST /v1/chunk/structured`, and `POST /v1/chunk/semantic`. `GET /v1/methods` lists the tiers, their endpoints and the file types,
+Each published chunking tier has its own endpoint taking a `file` upload: `POST /v1/chunk/basic` and
+`POST /v1/chunk/structured`. `GET /v1/methods` lists the tiers, their endpoints and the file types,
 and `GET /health` reports the running build.
 
 Interactive docs are served at <http://localhost:8000/docs> (Swagger UI) and `/redoc`, and the

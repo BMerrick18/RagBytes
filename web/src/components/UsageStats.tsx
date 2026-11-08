@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { isOffered } from "@/lib/tiers";
 
 /** Privacy note shown beside the founder card. */
 export function UsageStats() {
@@ -18,8 +19,9 @@ export function UsageStats() {
       <div className="flex flex-col gap-0.5">
         <p className="font-semibold text-emerald-200">No data is stored</p>
         <p className="text-sm text-zinc-400">
-          Files are chunked in memory and discarded as soon as the chunks are returned. Semantic sends the passage
-          text to OpenAI for the comparison, then discards that too.{" "}
+          Files are chunked in memory and discarded as soon as the chunks are returned.
+          {isOffered("semantic") &&
+            " Semantic sends the passage text to OpenAI for the comparison, then discards that too."}{" "}
           <Link href="/privacy" className="text-zinc-300 underline underline-offset-4 hover:text-zinc-100">
             Privacy
           </Link>
