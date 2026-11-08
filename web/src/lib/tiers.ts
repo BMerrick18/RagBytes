@@ -35,9 +35,9 @@ export const TIERS: Tier[] = [
     tagline: "Splits where the meaning changes",
     description:
       "Embeds neighbouring passages and starts a new chunk where the meaning shifts. A chunk stays inside its heading, except that very short neighbouring headings on the same subject can share one. The passage text is sent to OpenAI for those embeddings and then discarded.",
-    // Off for now. Set listed and available, and RAGBYTES_SEMANTIC_ENABLED, to publish it again.
+    // Shown grayed out, like Enriched. Set available and RAGBYTES_SEMANTIC_ENABLED to publish it again.
     available: false,
-    listed: false,
+    listed: true,
   },
   {
     id: "enriched",

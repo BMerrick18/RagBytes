@@ -92,7 +92,7 @@ export const DEMO_TIERS: Record<string, DemoTier> = {
     ],
     illustration: false,
     explanation:
-      "Structured starts a new chunk at each heading. The till is whole again, and the two bread paragraphs stay together because they share a heading. Before you leave is also one chunk, so the council-tax note is still attached to locking up.",
+      "Structured starts a new chunk at each heading. The till is whole again, and the two bread paragraphs stay together because they share a heading. Before you leave is also one chunk, so the council-tax note is still attached to locking up. Splitting that change of subject is what Semantic does.",
   },
   semantic: {
     illustration: true,
