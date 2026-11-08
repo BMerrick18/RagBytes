@@ -2,9 +2,9 @@ import statistics
 
 import pytest
 
-from ragbytes.chunk.semantic.boundaries import attach_fragments, cut_indexes
-from ragbytes.chunk.semantic.embed_prep import PreparedSentence
-from ragbytes.chunk.semantic.styles import BALANCED, STYLES, for_document, resolve_style
+from ragbytes.chunk.semantic_embed.boundaries import attach_fragments, cut_indexes
+from ragbytes.chunk.semantic_embed.embed_prep import PreparedSentence
+from ragbytes.chunk.semantic_embed.styles import BALANCED, STYLES, for_document, resolve_style
 
 
 def _passage(text: str, order: int, kind: str = "text") -> PreparedSentence:

@@ -1,5 +1,5 @@
 from ragbytes.chunk.registry import get_chunker
-from ragbytes.chunk.semantic.hosted import chunk_semantic_hosted
+from ragbytes.chunk.semantic_embed.hosted import chunk_semantic_hosted
 from ragbytes.chunk.simple import chunk_simple
 from ragbytes.chunk.structured import chunk_structured
 from ragbytes.schemas import Section
@@ -43,6 +43,9 @@ def test_short_section_keeps_its_metadata_and_text():
     assert metadata.heading == "Guide"
     assert metadata.subheading == "Setup"
     assert metadata.page == 2
+    assert metadata.topic is None
+    assert metadata.heading_paths == [["Guide", "Setup"]]
+    assert metadata.pages == [2]
     assert metadata.format == "text"
     assert (metadata.details.start, metadata.details.end) == (0, len(chunks[0].content))
     assert metadata.media_type is None

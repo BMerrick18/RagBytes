@@ -1,5 +1,5 @@
-from ragbytes.chunk.semantic.semantic import chunk_semantic
-from ragbytes.chunk.semantic.styles import BALANCED, resolve_style
+from ragbytes.chunk.semantic_embed.semantic import chunk_semantic
+from ragbytes.chunk.semantic_embed.styles import BALANCED, resolve_style
 from ragbytes.schemas import Section
 
 

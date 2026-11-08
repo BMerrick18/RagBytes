@@ -1,4 +1,4 @@
-from ragbytes.chunk.semantic.semantic import chunk_semantic
+from ragbytes.chunk.semantic_embed.semantic import chunk_semantic
 from ragbytes.chunk.simple import chunk_simple
 from ragbytes.chunk.structured import chunk_structured
 from ragbytes.extract.extractors import extract_markdown

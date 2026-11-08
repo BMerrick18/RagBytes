@@ -9,8 +9,8 @@ from pydantic import BaseModel, Field
 
 from ragbytes import stats
 from ragbytes.chunk.registry import CHUNKERS, DESCRIPTIONS, Chunker
-from ragbytes.chunk.semantic.hosted import SemanticEmbedError, SemanticNotConfigured
-from ragbytes.chunk.semantic.styles import StyleName, resolve_style
+from ragbytes.chunk.semantic_embed.hosted import SemanticEmbedError, SemanticNotConfigured
+from ragbytes.chunk.semantic_embed.styles import StyleName, resolve_style
 from ragbytes.config import settings
 from ragbytes.extract.complex import prepare_for_chunking
 from ragbytes.extract.registry import EXTRACTORS, Extractor, get_extractor

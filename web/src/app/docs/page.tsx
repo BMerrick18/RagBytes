@@ -23,10 +23,13 @@ const EXAMPLE_RESPONSE = `{
         "file_id": "6f1c…",
         "chunk_number": 0,
         "title": "Guide",
+        "topic": null,
         "headings": ["Install"],
         "heading": "Install",
         "subheading": null,
+        "heading_paths": [["Install"]],
         "page": null,
+        "pages": [],
         "format": "text",
         "media_type": null,
         "details": { "start": 0, "end": 20 }
@@ -143,7 +146,17 @@ async function ApiDocs() {
             <Code>metadata.format</Code> is one of text, list, table, image, chart, code or complex.
           </li>
           <li>
-            <Code>metadata.page</Code> is the page number for PDFs, otherwise null.
+            <Code>metadata.page</Code> is the first page this chunk touches, for PDFs, otherwise null.{" "}
+            <Code>metadata.pages</Code> lists every page it covers, in order.
+          </li>
+          <li>
+            <Code>metadata.topic</Code> is the short topic name when a model chose the cut, and null for the other
+            tiers.
+          </li>
+          <li>
+            <Code>metadata.heading_paths</Code> lists each heading path the chunk covers. A path is the outer heading
+            first. <Code>metadata.heading</Code> and <Code>metadata.subheading</Code> stay the first path, so a chunk
+            inside one heading matches the other tiers.
           </li>
         </ul>
         <CodeBlock label="200 OK">{EXAMPLE_RESPONSE}</CodeBlock>

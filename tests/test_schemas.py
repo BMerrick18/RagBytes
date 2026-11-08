@@ -61,3 +61,6 @@ def test_image_chunk_encodes_its_content_as_base64():
     assert base64.b64decode(dumped["content"]) == picture
     assert dumped["metadata"]["format"] == "image"
     assert dumped["metadata"]["media_type"] == "image/png"
+    assert dumped["metadata"]["topic"] is None
+    assert dumped["metadata"]["heading_paths"] == []
+    assert dumped["metadata"]["pages"] == []

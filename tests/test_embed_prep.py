@@ -1,6 +1,6 @@
-from ragbytes.chunk.semantic.chunks import whole_after_first_pass
-from ragbytes.chunk.semantic.embed_prep import HeadingPassages, PreparedSentence, prepare_sentences
-from ragbytes.chunk.semantic.styles import BALANCED
+from ragbytes.chunk.semantic_embed.chunks import whole_after_first_pass
+from ragbytes.chunk.semantic_embed.embed_prep import HeadingPassages, PreparedSentence, prepare_sentences
+from ragbytes.chunk.semantic_embed.styles import BALANCED
 from ragbytes.schemas import Section
 
 

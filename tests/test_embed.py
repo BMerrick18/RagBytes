@@ -4,8 +4,8 @@ from urllib import error
 
 import pytest
 
-from ragbytes.chunk.semantic import embed
-from ragbytes.chunk.semantic.embed import MAX_INPUT_CHARS, OpenAIEmbedder, embed_texts
+from ragbytes.chunk.semantic_embed import embed
+from ragbytes.chunk.semantic_embed.embed import MAX_INPUT_CHARS, OpenAIEmbedder, embed_texts
 
 
 class _Response(io.BytesIO):

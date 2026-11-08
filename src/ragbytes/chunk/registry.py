@@ -2,7 +2,7 @@
 
 from collections.abc import Callable
 
-from ragbytes.chunk.semantic.hosted import chunk_semantic_hosted
+from ragbytes.chunk.semantic_embed.hosted import chunk_semantic_hosted
 from ragbytes.chunk.simple import chunk_simple
 from ragbytes.chunk.structured import chunk_structured
 from ragbytes.schemas import Chunk
