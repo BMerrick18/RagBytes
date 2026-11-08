@@ -129,7 +129,7 @@ export const DEMO_TIERS: Record<string, DemoTier> = {
   llm: {
     illustration: true,
     explanation:
-      "LLM asks where the topic changes and names each chunk. An image, chart, table, or diagram would stay its own chunk instead of joining the sentences around it.",
+      "LLM sends the file and writes the topic chunks. The wording, heading, and page come back on each chunk.",
     chunks: [
       {
         sections: [0],

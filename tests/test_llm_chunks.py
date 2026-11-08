@@ -1,9 +1,19 @@
-from ragbytes.chunk.semantic_LLM.build_chunks import assemble_llm_chunks, build_chunk_records
-from ragbytes.chunk.semantic_LLM.openAI_call import ask_for_figure_title, read_figure_title
+from ragbytes.chunk.semantic_LLM.build_chunks import (
+    assemble_llm_chunks,
+    bound_splits,
+    build_chunk_records,
+)
+from ragbytes.chunk.semantic_LLM.openAI_call import (
+    _number_window,
+    ask_for_figure_title,
+    read_figure_title,
+)
 from ragbytes.chunk.semantic_LLM.text_prep import (
     FigureUnit,
     ProseRun,
+    absorb_captions,
     figure_message,
+    numbered_lines,
     segment_sections,
     tag_sentences,
 )
@@ -357,6 +367,276 @@ def test_a_figure_message_sends_the_picture_or_the_table():
         ]
     )
     assert [type(unit) for unit in chart_units] == [ProseRun, FigureUnit, ProseRun]
+
+
+def test_a_list_is_one_block_and_keeps_its_lines():
+    data = (
+        "The shop opens at seven. Bring the kit:\n"
+        "- Check the seal. Replace it if it leaks.\n"
+        "  and wipe the rim\n"
+        "  - Tighten the bolt.\n"
+        "1. Pack the bearings. Count them twice.\n"
+        "- Lock the till\n"
+        "- Count the float"
+    )
+    sections = [
+        Section(
+            file_id="file-1",
+            index=0,
+            kind="list",
+            title="Guide",
+            headings=["Setup"],
+            heading="Setup",
+            page=3,
+            data=data,
+        )
+    ]
+
+    tagged = tag_sentences(sections)
+    block = (
+        "Bring the kit:\n"
+        "- Check the seal. Replace it if it leaks.\n"
+        "  and wipe the rim\n"
+        "  - Tighten the bolt.\n"
+        "1. Pack the bearings. Count them twice.\n"
+        "- Lock the till\n"
+        "- Count the float"
+    )
+
+    assert [sentence.text for sentence in tagged] == [
+        "The shop opens at seven.",
+        block,
+    ]
+    assert {sentence.kind for sentence in tagged} == {"list"}
+    assert _number_window([sentence.text for sentence in tagged]) == (
+        "[0] The shop opens at seven.\n"
+        "[1] Bring the kit:\n"
+        "- Check the seal. Replace it if it leaks.\n"
+        "  and wipe the rim\n"
+        "  - Tighten the bolt.\n"
+        "1. Pack the bearings. Count them twice.\n"
+        "- Lock the till\n"
+        "- Count the float"
+    )
+
+    chunks = build_chunk_records(tagged, [(0, "Opening"), (1, "Kit")], filename="guide.docx")
+
+    assert [chunk.content for chunk in chunks] == [
+        "The shop opens at seven.",
+        block,
+    ]
+    assert chunks[1].metadata.format == "list"
+    assert chunks[0].metadata.topic == "Opening"
+    assert chunks[1].metadata.topic == "Kit"
+    assert chunks[1].embed_text == f"Guide > Setup\n\n{block}"
+    assert chunks[1].metadata.details.start == len(chunks[0].content) + 2
+    assert chunks[1].metadata.details.end - chunks[1].metadata.details.start == len(block)
+
+
+def test_prose_around_a_list_keeps_sentences_and_the_list_lines():
+    sections = [
+        Section(
+            file_id="file-1",
+            index=0,
+            kind="text",
+            headings=["Closing"],
+            heading="Closing",
+            page=1,
+            data="The shop opens at seven. The lights stay on.",
+        ),
+        Section(
+            file_id="file-1",
+            index=1,
+            kind="list",
+            headings=["Closing"],
+            heading="Closing",
+            page=1,
+            data="- Flour\n- Water",
+        ),
+        Section(
+            file_id="file-1",
+            index=2,
+            kind="text",
+            headings=["Closing"],
+            heading="Closing",
+            page=1,
+            data="The office dog is named Biscuit.",
+        ),
+    ]
+
+    tagged = tag_sentences(sections)
+    chunks = build_chunk_records(tagged, [(0, "Shop")], filename="notes.txt")
+
+    assert [sentence.text for sentence in tagged] == [
+        "The shop opens at seven.",
+        "The lights stay on.",
+        "- Flour\n- Water",
+        "The office dog is named Biscuit.",
+    ]
+    assert len(segment_sections(sections)) == 1
+    assert chunks[0].content == (
+        "The shop opens at seven. The lights stay on.\n"
+        "- Flour\n"
+        "- Water\n\n"
+        "The office dog is named Biscuit."
+    )
+    assert chunks[0].metadata.format == "text"
+    assert chunks[0].embed_text == f"Closing\n\n{chunks[0].content}"
+
+
+def test_a_list_with_no_markers_is_read_as_prose():
+    sections = [
+        Section(
+            file_id="file-1",
+            index=0,
+            kind="list",
+            data="The shop opens at seven. The lights stay on.",
+        )
+    ]
+
+    chunks = build_chunk_records(
+        tag_sentences(sections),
+        [(0, "Opening")],
+        filename="notes.txt",
+    )
+
+    assert chunks[0].content == "The shop opens at seven. The lights stay on."
+    assert chunks[0].metadata.format == "list"
+
+
+def test_a_short_label_stays_on_its_list_and_code_keeps_its_lines():
+    listed = tag_sentences(
+        [Section(file_id="file-1", index=0, kind="list", data="Ordered\n1. foo\n2. bar")]
+    )
+    code = tag_sentences(
+        [
+            Section(
+                file_id="file-1",
+                index=0,
+                kind="code",
+                data="// Some comments\nline 1 of code\nline 2 of code",
+            )
+        ]
+    )
+    bullets = tag_sentences(
+        [
+            Section(
+                file_id="file-1",
+                index=0,
+                kind="text",
+                data=(
+                    "This guideline does not cover:\n"
+                    "- recall intervals for scale and polish\n"
+                    "- the prescription of dental radiographs\n\n"
+                    "The following guidance is based on the evidence."
+                ),
+            )
+        ]
+    )
+
+    assert [sentence.text for sentence in listed] == ["Ordered\n1. foo\n2. bar"]
+    assert [sentence.text for sentence in code] == [
+        "// Some comments\nline 1 of code\nline 2 of code"
+    ]
+    assert [sentence.text for sentence in bullets] == [
+        (
+            "This guideline does not cover:\n"
+            "- recall intervals for scale and polish\n"
+            "- the prescription of dental radiographs"
+        ),
+        "The following guidance is based on the evidence.",
+    ]
+
+
+def test_a_heading_change_starts_a_chunk_and_a_fragment_joins_its_heading():
+    till = (
+        "The card machine settles overnight. "
+        "Count the float to fifty pounds before the first customer, "
+        "and put the notes in the blue tin under the counter."
+    )
+    closing = (
+        "Close the shop before you go home. "
+        "Turn both ovens off, wipe the steel counters, and lock the shop door."
+    )
+    sections = [
+        Section(
+            file_id="file-1",
+            index=0,
+            kind="text",
+            headings=["The till"],
+            heading="The till",
+            data=till,
+        ),
+        Section(
+            file_id="file-1",
+            index=1,
+            kind="text",
+            headings=["Before you leave"],
+            heading="Before you leave",
+            data=closing,
+        ),
+        Section(
+            file_id="file-1",
+            index=2,
+            kind="text",
+            headings=["Before you leave"],
+            heading="Before you leave",
+            data="!!!!!!",
+        ),
+        Section(
+            file_id="file-1",
+            index=3,
+            kind="text",
+            headings=["Before you leave"],
+            heading="Before you leave",
+            data="This is bold text.",
+        ),
+    ]
+    tagged = tag_sentences(sections)
+    bang = next(index for index, sentence in enumerate(tagged) if sentence.text == "!!!!!!")
+    bold = next(index for index, sentence in enumerate(tagged) if sentence.text == "This is bold text.")
+
+    splits = bound_splits(tagged, [(0, "Everything"), (bang, "Marks"), (bold, "Bold")])
+    chunks = build_chunk_records(tagged, splits, filename="notes.docx")
+
+    assert [chunk.metadata.heading for chunk in chunks] == ["The till", "Before you leave"]
+    assert chunks[1].metadata.topic == "Before you leave"
+    assert "lock the shop door" in chunks[0].content or "blue tin" in chunks[0].content
+    assert "!!!!!!" in chunks[1].content
+    assert "This is bold text." in chunks[1].content
+    assert "blue tin" not in chunks[1].content
+
+
+def test_a_caption_is_written_onto_the_figure_it_introduces():
+    sections = [
+        Section(file_id="file-1", index=0, kind="text", data="Count the float before you leave."),
+        Section(
+            file_id="file-1",
+            index=1,
+            kind="text",
+            data="And now, go to http://127.0.0.1:8000/redoc.",
+        ),
+        Section(file_id="file-1", index=2, kind="image", data="[Image: ReDoc]"),
+        Section(file_id="file-1", index=3, kind="text", data="Right aligned columns"),
+        Section(
+            file_id="file-1",
+            index=4,
+            kind="table",
+            data="| Option | Description |\n| --- | --- |\n| data | path |",
+        ),
+    ]
+
+    units = absorb_captions(segment_sections(sections))
+
+    assert [type(unit) for unit in units] == [ProseRun, FigureUnit, FigureUnit]
+    assert units[0].sentences[0].text == "Count the float before you leave."
+    assert units[1].section.data.startswith("And now, go to http://127.0.0.1:8000/redoc.")
+    assert "[Image: ReDoc]" in units[1].section.data
+    assert units[2].section.data.startswith("Right aligned columns")
+    assert numbered_lines(
+        ["Count the float before you leave."],
+        headings=[["The till"]],
+    ) == "# The till\n[0] Count the float before you leave."
 
 
 def test_a_figure_title_is_read_from_the_reply():

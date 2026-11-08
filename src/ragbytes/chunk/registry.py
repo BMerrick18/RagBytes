@@ -2,8 +2,8 @@
 
 from collections.abc import Callable
 
-from ragbytes.chunk.semantic_LLM.chunk import chunk_llm
 from ragbytes.chunk.semantic_embed.hosted import chunk_semantic_hosted
+from ragbytes.chunk.semantic_whole_doc.chunk import chunk_whole_doc
 from ragbytes.chunk.simple import chunk_simple
 from ragbytes.chunk.structured import chunk_structured
 from ragbytes.schemas import Chunk
@@ -16,7 +16,7 @@ CHUNKERS: dict[str, Chunker] = {
     "basic": chunk_simple,
     "structured": chunk_structured,
     "semantic": chunk_semantic_hosted,
-    "llm": chunk_llm,
+    "llm": chunk_whole_doc,
 }
 
 DESCRIPTIONS: dict[str, str] = {
@@ -39,8 +39,9 @@ DESCRIPTIONS: dict[str, str] = {
         "embeddings and then discarded."
     ),
     "llm": (
-        "Asks a language model where the topic changes and names each chunk. An image, chart, table, "
-        "or diagram stays its own chunk. The text and pictures are sent to OpenAI and then discarded."
+        "Sends the uploaded file to a language model and asks for written chunks by topic. The file "
+        "is not extracted first. The model copies each chunk's wording and fills its heading, page, "
+        "and format. A long file is sent again until the model reaches the end, then the file is discarded."
     ),
 }
 

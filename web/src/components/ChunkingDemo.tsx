@@ -156,7 +156,7 @@ export function ChunkingDemo({ tier, startOpen = false }: { tier: string; startO
                   {shown === "semantic" && LISTED_TIERS.find((option) => option.id === shown)?.available
                     ? "Recorded from the live embeddings on this note, using the Balanced style. Uploading a different file runs the comparison again. A chunk stays inside its heading unless neighbouring headings are very short and on the same subject."
                     : shown === "llm"
-                      ? "An illustration. Uploading a file asks the model where the topics change."
+                      ? "An illustration. Uploading a file sends that file to the model, which writes the topic chunks."
                       : "Coming soon. This is an illustration of what the tier will do, not real output."}
                 </p>
               )}

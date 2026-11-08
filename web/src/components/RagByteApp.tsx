@@ -184,7 +184,7 @@ export function RagByteApp() {
           {isOffered("semantic") &&
             " Semantic sends the passage text to OpenAI for the comparison, then discards that too."}
           {isOffered("llm") &&
-            " LLM chunking sends the text and any pictures to OpenAI, using the key on this computer, then discards them too."}{" "}
+            " LLM chunking sends the uploaded file to OpenAI, using the key on this computer, then discards it too."}{" "}
           <Link href="/privacy" className="text-zinc-400 underline underline-offset-4 hover:text-zinc-200">
             Privacy
           </Link>

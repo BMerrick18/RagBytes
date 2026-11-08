@@ -44,7 +44,7 @@ export const TIERS: Tier[] = [
     name: "LLM",
     tagline: "Splits where the topic changes",
     description:
-      "Asks a language model where the topic changes and names each chunk. An image, chart, table, or diagram stays its own chunk. The text and pictures are sent to OpenAI and then discarded.",
+      "Sends the uploaded file to a language model and asks for written chunks by topic. The file is not extracted first. The model copies each chunk's wording and fills its heading, page, and format. A long file is sent again until the model reaches the end, then the file is discarded.",
     available: process.env.NEXT_PUBLIC_RAGBYTE_LLM_ENABLED === "true",
     listed: process.env.NEXT_PUBLIC_RAGBYTE_LLM_ENABLED === "true",
   },
