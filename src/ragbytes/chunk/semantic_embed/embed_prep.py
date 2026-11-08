@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 
 from ragbytes.chunk.assemble import titled_path
-from ragbytes.chunk.semantic.styles import BALANCED, Style
+from ragbytes.chunk.semantic_embed.styles import BALANCED, Style
 from ragbytes.chunk.simple import _split_table, prepared_sections
 from ragbytes.schemas import Section, SectionKind
 

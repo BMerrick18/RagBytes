@@ -2,8 +2,8 @@
 
 from dataclasses import dataclass, field
 
-from ragbytes.chunk.semantic.embed_prep import HeadingPassages, PreparedSentence
-from ragbytes.chunk.semantic.styles import BALANCED, Style
+from ragbytes.chunk.semantic_embed.embed_prep import HeadingPassages, PreparedSentence
+from ragbytes.chunk.semantic_embed.styles import BALANCED, Style
 
 
 @dataclass
